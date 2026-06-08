@@ -911,16 +911,17 @@ function analyze(){
     const expected=Math.floor(adu*daysLeft);
     const remaining=Math.round(b.qty-expected);
     let dgrade;
-    if(b.isFFFFF)         dgrade='FFFFF';
-    else if(remaining>0)  dgrade='소진불가';
-    else if(daysLeft<=EXP_D) dgrade='임박';
-    else                  dgrade='정상';
+    if(b.isFFFFF)                          dgrade='FFFFF';
+    else if(remaining>0 && daysLeft<=EXP_D) dgrade='소진불가+임박';
+    else if(remaining>0)                   dgrade='소진불가';
+    else if(daysLeft<=EXP_D)               dgrade='임박';
+    else                                   dgrade='정상';
     return{...b,daysLeft,adu,expected,remaining,dgrade};
   }).filter(Boolean);
 
   const dormFFFFF=dormList.filter(r=>r.dgrade==='FFFFF').sort((a,b)=>a.daysLeft-b.daysLeft);
-  const dormNoOut=dormList.filter(r=>r.dgrade==='소진불가').sort((a,b)=>a.daysLeft-b.daysLeft);
-  const dormExp  =dormList.filter(r=>r.dgrade==='임박').sort((a,b)=>a.daysLeft-b.daysLeft);
+  const dormNoOut=dormList.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박').sort((a,b)=>a.daysLeft-b.daysLeft);
+  const dormExp  =dormList.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박').sort((a,b)=>a.daysLeft-b.daysLeft);
   const dormZero =zero;
 
   _lastResult=result;_lastDormant=dormList;
@@ -1108,6 +1109,7 @@ function renderDormTable(tbodyId,rows,isFFFFF=false){
     const dlc=dl<=7?'var(--danger)':dl<=30?'var(--warn)':'var(--text2)';
     const rc=r.remaining>0?'var(--danger)':'var(--ok)';
     const badge=isFFFFF?`<span class="badge bp">출고불가</span>`
+      :r.dgrade==='소진불가+임박'?`<span class="badge bd">소진불가</span> <span class="badge bw">임박</span>`
       :r.dgrade==='소진불가'?`<span class="badge bd">소진불가</span>`:`<span class="badge bw">임박</span>`;
     return`<tr class="${isFFFFF?'row-p':i%2?'':'row-w'}">
       <td class="l">${r.name}${isFFFFF?'<span style="font-size:10px;color:var(--purple);margin-left:4px;font-weight:600">[FFFFF]</span>':''}</td>
@@ -1176,8 +1178,8 @@ function loadResult(e){
       const danger=payload.result.filter(r=>r.grade.includes('위험'));
       const warn  =payload.result.filter(r=>r.grade==='⚠️ 주의');
       const dormFFFFF=_lastDormant.filter(r=>r.dgrade==='FFFFF');
-      const dormNoOut=_lastDormant.filter(r=>r.dgrade==='소진불가');
-      const dormExp  =_lastDormant.filter(r=>r.dgrade==='임박');
+      const dormNoOut=_lastDormant.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박');
+      const dormExp  =_lastDormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박');
       const dormZero =payload.result.filter(r=>r.grade==='➖ 미회전');
       renderHome(payload.result,danger,warn);
       renderRisk(payload.result,danger,warn);
