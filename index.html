@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GFS 재고관리 대시보드</title>
+<style>
+:root {
+  --bg:      #f7f8fa;
+  --surface: #ffffff;
+  --border:  #eaedf0;
+  --text:    #0f1117;
+  --text2:   #444;
+  --text3:   #888;
+  --accent:  #2563eb;
+  --danger:  #dc2626;
+  --warn:    #d97706;
+  --ok:      #16a34a;
+  --purple:  #7c3aed;
+  --font:    '맑은 고딕', 'Apple SD Gothic Neo', sans-serif;
+  --r:       10px;
+  --shadow:  0 1px 4px rgba(0,0,0,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);font-size:13px;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── 탑바 ─────────────────────────────────────── */
+.topbar{position:sticky;top:0;z-index:200;background:#fff;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:54px;
+  box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-logo{width:30px;height:30px;background:var(--accent);border-radius:7px;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px}
+.brand-name{font-size:14px;font-weight:600}
+.brand-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.date-label{font-size:11px;color:var(--text3);margin-right:4px}
+
+/* ── 탭 ────────────────────────────────────────── */
+.tabs{display:flex;background:#fff;border-bottom:1px solid var(--border);padding:0 20px;overflow-x:auto}
+.tab{padding:12px 16px;font-size:13px;color:var(--text3);cursor:pointer;
+  border-bottom:2px solid transparent;transition:.2s;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+/* ── 레이아웃 ────────────────────────────────────── */
+.content{max-width:1280px;margin:0 auto;padding:18px 20px}
+.tab-pane{display:none}.tab-pane.on{display:block}
+
+/* ── 버튼 ──────────────────────────────────────── */
+.btn{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:500;
+  cursor:pointer;border:none;font-family:var(--font);transition:.15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.9}
+.btn-success{background:#16a34a;color:#fff}.btn-success:hover{opacity:.9}
+.btn-outline{background:#fff;color:var(--text2);border:1px solid var(--border)}.btn-outline:hover{background:var(--bg)}
+.btn-sm{padding:5px 10px;font-size:11px}
+
+/* ── 카드 ──────────────────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:14px 16px;box-shadow:var(--shadow)}
+.card-lbl{font-size:11px;color:var(--text3);margin-bottom:5px}
+.card-val{font-size:22px;font-weight:700}
+.card-sub{font-size:10px;color:var(--text3);margin-top:3px}
+.card.c-danger{border-left:4px solid var(--danger)}.card.c-danger .card-val{color:var(--danger)}
+.card.c-warn{border-left:4px solid var(--warn)}.card.c-warn .card-val{color:var(--warn)}
+.card.c-ok{border-left:4px solid var(--ok)}.card.c-ok .card-val{color:var(--ok)}
+.card.c-accent{border-left:4px solid var(--accent)}.card.c-accent .card-val{color:var(--accent)}
+.card.c-purple{border-left:4px solid var(--purple)}.card.c-purple .card-val{color:var(--purple)}
+
+/* ── 섹션 헤더 ─────────────────────────────────── */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.sec-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.sec-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sec-right{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+/* ── 필터/정렬 ──────────────────────────────────── */
+.filter-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.filter-lbl{font-size:11px;color:var(--text3)}
+.fbtn{font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);
+  background:#fff;cursor:pointer;color:var(--text2);transition:.15s}
+.fbtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.fbtn.on-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.fbtn.on-warn{background:var(--warn);color:#fff;border-color:var(--warn)}
+.fbtn.on-ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+.sort-sel{font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);
+  background:#fff;color:var(--text2);cursor:pointer;margin-left:auto}
+
+/* ── 테이블 ─────────────────────────────────────── */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  overflow-x:auto;margin-bottom:20px;box-shadow:var(--shadow);-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:680px}
+thead tr{background:#f8f9fb}
+th{padding:9px 12px;text-align:right;font-weight:500;color:var(--text3);
+  white-space:nowrap;border-bottom:1px solid var(--border);font-size:11px}
+th.l{text-align:left}
+td{padding:8px 12px;text-align:right;border-bottom:1px solid #f1f3f5;white-space:nowrap}
+td.l{text-align:left}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbff}
+.row-d td{background:rgba(220,38,38,.04)}
+.row-d:hover td{background:rgba(220,38,38,.08)}
+.row-w td{background:rgba(245,158,11,.03)}
+.row-w:hover td{background:rgba(245,158,11,.07)}
+.row-p td{background:rgba(124,58,237,.03)}
+
+/* ── 뱃지 ──────────────────────────────────────── */
+.badge{font-size:10px;padding:2px 8px;border-radius:5px;font-weight:500;white-space:nowrap;display:inline-block}
+.bd{background:#fee2e2;color:var(--danger)}
+.bw{background:#fef3c7;color:var(--warn)}
+.bo{background:#dcfce7;color:var(--ok)}
+.bp{background:#ede9fe;color:var(--purple)}
+.bm{background:#f1f5f9;color:var(--text3)}
+
+/* ── 중요도 ─────────────────────────────────────── */
+.i3{color:#1e40af;font-weight:600;font-size:11px}
+.i2{color:var(--text2);font-size:11px}
+.i1{color:var(--text3);font-size:11px}
+.i0{color:var(--text3);font-size:11px;font-style:italic}
+.ipct{font-size:10px;color:var(--text3);display:block}
+
+/* ── ADU 바 ─────────────────────────────────────── */
+.adu-wrap{display:flex;align-items:center;gap:4px;justify-content:flex-end}
+.adu-bg{width:36px;height:5px;border-radius:3px;background:#e5e7eb;overflow:hidden;flex-shrink:0}
+.adu-fill{height:5px;border-radius:3px;background:var(--accent)}
+.adu-fill.low{background:#94a3b8}
+
+/* ── DoS 바 ─────────────────────────────────────── */
+.dos-wrap{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.dos-bg{width:50px;height:7px;border-radius:4px;background:#e5e7eb;overflow:hidden;flex-shrink:0}
+.dos-fill{height:7px;border-radius:4px;transition:width .3s}
+.dos-val{font-size:11px;font-weight:600;min-width:38px;text-align:left}
+
+/* ── 업로드 ──────────────────────────────────────── */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.upload-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px}
+.upload-card.full{grid-column:1/-1;border-color:rgba(22,163,74,.3)}
+.upload-title{font-size:12px;font-weight:600;margin-bottom:4px}
+.upload-sub{font-size:11px;color:var(--text3);margin-bottom:10px}
+.upload-zone{border:1.5px dashed var(--border);border-radius:7px;padding:18px;text-align:center;
+  cursor:pointer;transition:.2s;position:relative}
+.upload-zone:hover,.upload-zone.over{border-color:var(--accent);background:rgba(37,99,235,.04)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.upload-icon{font-size:18px;margin-bottom:4px}
+.upload-txt{font-size:11px;color:var(--text3)}
+.upload-status{margin-top:8px;font-size:11px;padding:5px 10px;border-radius:5px;display:none}
+.us-ok{background:rgba(22,163,74,.1);color:var(--ok);display:block}
+.us-err{background:rgba(220,38,38,.1);color:var(--danger);display:block}
+.pick-info{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap}
+.pick-stat{font-size:11px;color:var(--text3)}
+.pick-stat span{color:var(--ok);font-weight:600}
+.pick-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.pick-tag{font-size:10px;padding:2px 7px;background:rgba(22,163,74,.1);color:var(--ok);
+  border-radius:4px;border:1px solid rgba(22,163,74,.2)}
+.analyze-bar{background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--r);
+  padding:14px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.analyze-txt{font-size:12px;color:#1e40af;line-height:1.6}
+
+/* ── 설정 ──────────────────────────────────────── */
+.set-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:16px;max-width:440px;margin-bottom:16px}
+.set-title{font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text)}
+.set-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.set-lbl{font-size:12px;color:var(--text2);width:160px}
+.set-inp{background:var(--bg);border:1px solid var(--border);border-radius:5px;
+  padding:5px 10px;color:var(--text);font-size:12px;width:80px;font-family:var(--font)}
+
+/* ── 빈 상태 ─────────────────────────────────────── */
+.empty{text-align:center;padding:40px 20px;color:var(--text3)}
+.empty-icon{font-size:32px;margin-bottom:8px}
+
+/* ── 화주사 안내문 ────────────────────────────────── */
+.msg-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:16px;margin-bottom:12px}
+.msg-body{font-size:12px;line-height:1.9;white-space:pre-line;color:var(--text)}
+.msg-actions{display:flex;gap:8px;margin-top:12px}
+
+/* ── 분리선 ──────────────────────────────────────── */
+.divider{height:1px;background:var(--border);margin:4px 0 20px}
+
+/* ── 모바일 ──────────────────────────────────────── */
+@media(max-width:600px){
+  .cards{grid-template-columns:repeat(2,1fr)}
+  .upload-grid{grid-template-columns:1fr}
+  .content{padding:12px}
+  .topbar-right .btn-outline:not(:last-child){display:none}
+}
+
+/* ── 스크롤바 ─────────────────────────────────────── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- 탑바 -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-logo">G</div>
+    <div>
+      <div class="brand-name">GFS 재고관리 대시보드</div>
+      <div class="brand-sub">안성센터 · 삼진식품(주)</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="date-label" id="date-lbl"></span>
+    <button class="btn btn-success btn-sm" onclick="saveResult()">💾 결과 저장</button>
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('load-inp').click()">📂 불러오기</button>
+    <input type="file" id="load-inp" accept=".json,.txt" style="display:none" onchange="loadResult(event)">
+    <button class="btn btn-outline btn-sm" onclick="exportExcel()">📥 엑셀</button>
+    <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+    <button class="btn btn-sm" style="background:#1e40af;color:#fff" onclick="generateExcel()">📊 보고서 Excel</button>
+    <button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="generatePPT()">📑 보고서 PPT</button>
+    <button class="btn btn-sm" style="background:#0f172a;color:#fff" onclick="generateAll()">🗂 전체 보고서</button>
+  </div>
+</div>
+
+<!-- 탭 -->
+<div class="tabs">
+  <div class="tab on"  onclick="switchTab('home')">🏠 홈</div>
+  <div class="tab" onclick="switchTab('risk')">🚨 위험재고</div>
+  <div class="tab" onclick="switchTab('dormant')">📦 부진재고</div>
+  <div class="tab" onclick="switchTab('upload')">📂 데이터 입력</div>
+  <div class="tab" onclick="switchTab('settings')">⚙ 설정</div>
+</div>
+
+<!-- ═══ 홈 ═══ -->
+<div id="pane-home" class="tab-pane on">
+<div class="content">
+  <div id="home-empty" class="empty"><div class="empty-icon">🏠</div><div>데이터를 업로드하고 분석을 실행하세요</div></div>
+  <div id="home-body" style="display:none">
+
+    <!-- 요약 카드 -->
+    <div class="cards">
+      <div class="card c-accent"><div class="card-lbl">전체 SKU</div><div class="card-val" id="hc-total">-</div><div class="card-sub">관리 대상</div></div>
+      <div class="card c-danger"><div class="card-lbl">🔴 위험</div><div class="card-val" id="hc-danger">-</div><div class="card-sub">DoS 3일 미만</div></div>
+      <div class="card c-warn"><div class="card-lbl">⚠️ 주의</div><div class="card-val" id="hc-warn">-</div><div class="card-sub">DoS 3~7일</div></div>
+      <div class="card c-purple"><div class="card-lbl">⭐ 주력 위험</div><div class="card-val" id="hc-core">-</div><div class="card-sub">주력 SKU 중 위험/주의</div></div>
+    </div>
+
+    <!-- ADU TOP 섹션 -->
+    <div class="sec-hdr" style="flex-wrap:wrap;gap:8px">
+      <div class="sec-title"><div class="sec-dot" style="background:#1e40af"></div>주력 SKU 현황 <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px">ADU 기준 상위</span></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="filter-row" style="margin:0">
+          <span class="filter-lbl">중요도:</span>
+          <button class="fbtn on" onclick="homeFilter('imp','all',this)">전체</button>
+          <button class="fbtn" onclick="homeFilter('imp','3',this)">⭐⭐⭐</button>
+          <button class="fbtn" onclick="homeFilter('imp','2',this)">⭐⭐</button>
+          <button class="fbtn" onclick="homeFilter('imp','1',this)">⭐</button>
+        </div>
+        <div class="filter-row" style="margin:0">
+          <span class="filter-lbl">상태:</span>
+          <button class="fbtn on" onclick="homeFilter('state','all',this)">전체</button>
+          <button class="fbtn" onclick="homeFilter('state','danger',this)">🔴</button>
+          <button class="fbtn" onclick="homeFilter('state','warn',this)">⚠️</button>
+          <button class="fbtn" onclick="homeFilter('state','ok',this)">✅</button>
+        </div>
+        <select class="sort-sel" onchange="homeSort(this.value)">
+          <option value="adu">ADU 내림차순</option>
+          <option value="dos">DoS 오름차순</option>
+          <option value="score">우선순위 점수순</option>
+        </select>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table style="min-width:780px">
+        <thead><tr>
+          <th class="l" style="width:40px">순위</th>
+          <th class="l" style="min-width:160px">품명</th>
+          <th style="width:70px">WMS</th>
+          <th style="width:70px">비축</th>
+          <th style="width:70px">총재고</th>
+          <th style="width:60px">FFFFF<br><span style="font-size:9px;font-weight:400">참고</span></th>
+          <th style="width:100px">ADU</th>
+          <th style="width:140px">DoS</th>
+          <th style="width:110px">중요도</th>
+          <th style="width:70px">상태</th>
+        </tr></thead>
+        <tbody id="home-sku-body"></tbody>
+      </table>
+    </div>
+
+    <!-- 즉시 조치 -->
+    <div class="sec-hdr">
+      <div class="sec-title"><div class="sec-dot" style="background:var(--danger)"></div>오늘 즉시 조치 필요 <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px">DoS 3일 미만</span></div>
+      <button class="btn btn-outline btn-sm" onclick="switchTab('risk')">상세 보기 →</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th class="l" style="width:30%">품명</th>
+          <th>총재고</th><th>ADU</th>
+          <th style="width:18%">DoS</th>
+          <th>중요도</th><th>당일미출</th>
+        </tr></thead>
+        <tbody id="home-urgent-body"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ═══ 위험재고 ═══ -->
+<div id="pane-risk" class="tab-pane">
+<div class="content">
+  <div id="risk-empty" class="empty"><div class="empty-icon">🚨</div><div>분석 실행 후 확인 가능합니다</div></div>
+  <div id="risk-body" style="display:none">
+
+    <!-- 요약 카드 -->
+    <div class="cards">
+      <div class="card c-accent"><div class="card-lbl">전체 SKU</div><div class="card-val" id="rc-total">-</div></div>
+      <div class="card c-danger"><div class="card-lbl">🔴 위험</div><div class="card-val" id="rc-danger">-</div><div class="card-sub">DoS 3일 미만</div></div>
+      <div class="card c-warn"><div class="card-lbl">⚠️ 주의</div><div class="card-val" id="rc-warn">-</div><div class="card-sub">DoS 3~7일</div></div>
+      <div class="card c-ok"><div class="card-lbl">✅ 정상</div><div class="card-val" id="rc-ok">-</div><div class="card-sub">DoS 7일 이상</div></div>
+    </div>
+
+    <!-- 위험 섹션 -->
+    <div class="sec-hdr">
+      <div class="sec-title"><div class="sec-dot" style="background:var(--danger)"></div>즉시 조치 필요 (DoS 3일 미만)</div>
+      <div class="sec-right">
+        <button class="fbtn on" onclick="riskFilter('danger','all',this)">전체</button>
+        <button class="fbtn" onclick="riskFilter('danger','3',this)">⭐⭐⭐ 주력</button>
+        <button class="fbtn" onclick="riskFilter('danger','2',this)">⭐⭐ 일반</button>
+        <button class="fbtn" onclick="riskFilter('danger','1',this)">⭐ 저회전</button>
+        <select class="sort-sel" onchange="riskSort('danger',this.value)">
+          <option value="score">우선순위점수순</option>
+          <option value="dos">DoS 오름차순</option>
+          <option value="adu">ADU 내림차순</option>
+        </select>
+        <button class="btn btn-outline btn-sm" id="score-tog" onclick="toggleScore()">점수 보기</button>
+      </div>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th class="l" style="width:24%">품명</th>
+        <th>WMS</th><th>비축</th><th>총재고</th>
+        <th style="width:60px">ADU</th><th style="width:130px">DoS</th>
+        <th>당일미출</th><th>중요도</th>
+        <th class="score-col" style="display:none">점수</th>
+        <th>상태</th>
+      </tr></thead>
+      <tbody id="danger-body"></tbody>
+    </table></div>
+
+    <div class="divider"></div>
+
+    <!-- 주의 섹션 -->
+    <div class="sec-hdr">
+      <div class="sec-title"><div class="sec-dot" style="background:var(--warn)"></div>모니터링 강화 (DoS 3~7일)</div>
+      <div class="sec-right">
+        <button class="fbtn on" onclick="riskFilter('warn','all',this)">전체</button>
+        <button class="fbtn" onclick="riskFilter('warn','3',this)">⭐⭐⭐ 주력</button>
+        <button class="fbtn" onclick="riskFilter('warn','2',this)">⭐⭐ 일반</button>
+        <button class="fbtn" onclick="riskFilter('warn','1',this)">⭐ 저회전</button>
+        <select class="sort-sel" onchange="riskSort('warn',this.value)">
+          <option value="score">우선순위점수순</option>
+          <option value="dos">DoS 오름차순</option>
+          <option value="adu">ADU 내림차순</option>
+        </select>
+      </div>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th class="l" style="width:24%">품명</th>
+        <th>WMS</th><th>비축</th><th>총재고</th>
+        <th style="width:60px">ADU</th><th style="width:130px">DoS</th>
+        <th>당일미출</th><th>중요도</th>
+        <th class="score-col" style="display:none">점수</th>
+        <th>상태</th>
+      </tr></thead>
+      <tbody id="warn-body"></tbody>
+    </table></div>
+
+    <!-- 화주사 안내문 -->
+    <div class="sec-hdr" style="margin-top:4px">
+      <div class="sec-title"><div class="sec-dot" style="background:var(--ok)"></div>화주사 안내문</div>
+    </div>
+    <div class="msg-wrap">
+      <div class="msg-body" id="msg-txt"></div>
+      <div class="msg-actions">
+        <button class="btn btn-success btn-sm" onclick="copyMsg()">📋 카카오톡 복사</button>
+        <button class="btn btn-outline btn-sm" onclick="copyMsg()">📧 이메일 복사</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ═══ 부진재고 ═══ -->
+<div id="pane-dormant" class="tab-pane">
+<div class="content">
+  <div id="dorm-empty" class="empty"><div class="empty-icon">📦</div><div>분석 실행 후 확인 가능합니다</div></div>
+  <div id="dorm-body" style="display:none">
+
+    <!-- 요약 카드 -->
+    <div class="cards">
+      <div class="card c-purple"><div class="card-lbl">🔒 FFFFF</div><div class="card-val" id="dc-fffff">-</div><div class="card-sub">출고불가 로케이션</div></div>
+      <div class="card c-danger"><div class="card-lbl">🔴 소진불가</div><div class="card-val" id="dc-noout">-</div><div class="card-sub">기한 내 소진 불가</div></div>
+      <div class="card c-warn"><div class="card-lbl">⚠️ 유통기한 임박</div><div class="card-val" id="dc-exp">-</div><div class="card-sub">D-30 이내</div></div>
+      <div class="card" style="border-left:4px solid var(--text3)"><div class="card-lbl">🔇 미회전</div><div class="card-val" id="dc-zero" style="color:var(--text3)">-</div><div class="card-sub">14일 출고 없음</div></div>
+    </div>
+
+    <!-- FFFFF -->
+    <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--purple)"></div>🔒 FFFFF 재고 (출고불가 로케이션)</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th class="l">품명</th><th>유통기한</th><th>남은일수</th><th>수량</th><th>ADU</th><th>예상소진</th><th>잔여예상</th><th>판정</th></tr></thead>
+      <tbody id="dorm-fffff-body"></tbody>
+    </table></div>
+
+    <div class="divider"></div>
+
+    <!-- 소진불가 -->
+    <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--danger)"></div>🔴 소진불가 재고 (기한 내 출고 불가)</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th class="l">품명</th><th>유통기한</th><th>남은일수</th><th>현재고</th><th>ADU</th><th>예상소진</th><th>잔여예상</th><th>판정</th></tr></thead>
+      <tbody id="dorm-noout-body"></tbody>
+    </table></div>
+
+    <div class="divider"></div>
+
+    <!-- 유통기한 임박 -->
+    <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--warn)"></div>⚠️ 유통기한 임박 (D-30 이내)</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th class="l">품명</th><th>유통기한</th><th>남은일수</th><th>현재고</th><th>ADU</th><th>예상소진</th><th>잔여예상</th><th>판정</th></tr></thead>
+      <tbody id="dorm-exp-body"></tbody>
+    </table></div>
+
+    <div class="divider"></div>
+
+    <!-- 미회전 (ADU=0) — 저회전과 완전 분리 -->
+    <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--text3)"></div>🔇 미회전 SKU (14일간 출고 이력 없음)</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th class="l">품명</th><th>WMS</th><th>비축</th><th>총재고</th><th>유통기한</th><th>비고</th></tr></thead>
+      <tbody id="dorm-zero-body"></tbody>
+    </table></div>
+
+  </div>
+</div>
+</div>
+
+<!-- ═══ 데이터 입력 ═══ -->
+<div id="pane-upload" class="tab-pane">
+<div class="content">
+  <div class="upload-grid">
+    <div class="upload-card">
+      <div class="upload-title">📦 현재고 (WMS)</div>
+      <div class="upload-sub">매일 덮어씌우기 · FFFFF/SHPLOC 자동 처리</div>
+      <div class="upload-zone" id="uz-stock" ondragover="dov(event,'uz-stock')" ondragleave="dlv('uz-stock')" ondrop="dop(event,'stock')">
+        <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'stock')">
+        <div class="upload-icon">📄</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
+      </div>
+      <div class="upload-status" id="us-stock"></div>
+    </div>
+    <div class="upload-card">
+      <div class="upload-title">🏪 현재고 (비축)</div>
+      <div class="upload-sub">매일 덮어씌우기</div>
+      <div class="upload-zone" id="uz-bichuk" ondragover="dov(event,'uz-bichuk')" ondragleave="dlv('uz-bichuk')" ondrop="dop(event,'bichuk')">
+        <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'bichuk')">
+        <div class="upload-icon">📄</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
+      </div>
+      <div class="upload-status" id="us-bichuk"></div>
+    </div>
+    <div class="upload-card">
+      <div class="upload-title">📋 출고오더등록</div>
+      <div class="upload-sub">매일 덮어씌우기 · 당일 미출 감지</div>
+      <div class="upload-zone" id="uz-order" ondragover="dov(event,'uz-order')" ondragleave="dlv('uz-order')" ondrop="dop(event,'order')">
+        <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'order')">
+        <div class="upload-icon">📄</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
+      </div>
+      <div class="upload-status" id="us-order"></div>
+    </div>
+    <div class="upload-card full">
+      <div class="upload-title">✅ 할당피킹 <span style="font-size:10px;color:var(--text3);font-weight:400">(누적 · 삭제 불필요)</span></div>
+      <div class="upload-sub">매일 당일 파일 추가 · 14일 ADU 자동 계산</div>
+
+      <!-- STEP 1: 폴더 지정 -->
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px"><strong style="color:var(--text2)">STEP 1.</strong> 저장 폴더 지정 (최초 1회 · 크롬/엣지 전용)</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="selectFolder()">📁 폴더 선택</button>
+          <span id="folder-path" style="font-size:11px;color:var(--text3)">폴더 미지정</span>
+        </div>
+      </div>
+
+      <!-- STEP 2: 파일 업로드 -->
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px"><strong style="color:var(--text2)">STEP 2.</strong> 매일 당일 파일 업로드</div>
+      <div class="upload-zone" id="uz-pick" ondragover="dov(event,'uz-pick')" ondragleave="dlv('uz-pick')" ondrop="dop(event,'pick')">
+        <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'pick')">
+        <div class="upload-icon">➕</div><div class="upload-txt">당일 파일 추가 업로드</div>
+      </div>
+      <div class="upload-status" id="us-pick"></div>
+      <div class="pick-info">
+        <div class="pick-stat">누적 일수: <span id="pick-days">0</span>일</div>
+        <div class="pick-stat">누적 행수: <span id="pick-rows">0</span>행</div>
+        <div class="pick-stat">최근: <span id="pick-last">-</span></div>
+      </div>
+      <div class="pick-tags" id="pick-tags"></div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="loadFromFolder()">🔄 폴더에서 불러오기</button>
+        <button class="btn btn-outline btn-sm" onclick="clearPick()" style="color:var(--danger);border-color:var(--danger)">🗑 초기화</button>
+      </div>
+    </div>
+  </div>
+  <div class="analyze-bar">
+    <div class="analyze-txt">파일 업로드 후 분석을 실행하면 모든 탭이 자동 갱신됩니다.</div>
+    <button class="btn btn-primary" onclick="analyze()">🔍 분석 실행</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ 설정 ═══ -->
+<div id="pane-settings" class="tab-pane">
+<div class="content">
+  <div class="set-card">
+    <div class="set-title">재고위험 기준</div>
+    <div class="set-row"><div class="set-lbl">🔴 위험 기준 (DoS)</div><input class="set-inp" type="number" id="set-danger" value="3"> 일 미만</div>
+    <div class="set-row"><div class="set-lbl">⚠️ 주의 기준 (DoS)</div><input class="set-inp" type="number" id="set-warn" value="7"> 일 미만</div>
+    <div class="set-row"><div class="set-lbl">📅 ADU 계산 기간</div><input class="set-inp" type="number" id="set-adu" value="14"> 일</div>
+  </div>
+  <div class="set-card">
+    <div class="set-title">중요도 분류 기준 (ADU 순위 %)</div>
+    <div class="set-row"><div class="set-lbl">⭐⭐⭐ 주력 기준</div>상위 <input class="set-inp" type="number" id="set-top" value="30"> %</div>
+    <div class="set-row"><div class="set-lbl">⭐ 저회전 기준</div>하위 <input class="set-inp" type="number" id="set-bot" value="30"> %</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">※ ADU = 0인 SKU는 자동으로 "미회전"으로 별도 분류</div>
+  </div>
+  <div class="set-card">
+    <div class="set-title">부진재고 기준</div>
+    <div class="set-row"><div class="set-lbl">⚠️ 유통기한 임박</div><input class="set-inp" type="number" id="set-exp" value="30"> 일 이내</div>
+  </div>
+</div>
+</div>
+
+<script>
+// ── 전역 ──────────────────────────────────────────────────────
+const today = new Date();
+const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+document.getElementById('date-lbl').textContent = `기준일: ${todayStr}`;
+function pad(n){return String(n).padStart(2,'0')}
+
+const S = {stock:null, bichuk:null, order:null, pick:[], stock_all:null};
+let _lastResult=null, _lastDormant=null;
+let _cacheHome=[], _cacheDanger=[], _cacheWarn=[];
+let _homeImpF='all', _homeStateF='all', _homeSortBy='adu';
+let _scoreVisible=false;
+
+// ── 탭 전환 ────────────────────────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>
+    t.classList.toggle('on',['home','risk','dormant','upload','settings'][i]===name));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById('pane-'+name).classList.add('on');
+}
+
+// ── 드래그앤드롭 ────────────────────────────────────────────────
+function dov(e,id){e.preventDefault();document.getElementById(id).classList.add('over')}
+function dlv(id){document.getElementById(id).classList.remove('over')}
+function dop(e,type){e.preventDefault();dlv('uz-'+type);const f=e.dataTransfer.files[0];if(f)readXlsx(f,type)}
+function loadFile(e,type){const f=e.target.files[0];if(f)readXlsx(f,type)}
+
+// ── XLSX 읽기 (순수 JS로 구현 불가 → SheetJS CDN 없이 CSV 대안 제공)
+// SheetJS 없이 동작하도록 — 파일을 ArrayBuffer로 읽고 파싱
+// 실제 xlsx는 SheetJS 필요하므로 동적 로드
+let XLSX_LOADED=false;
+function ensureXlsx(cb){
+  if(window.XLSX){cb();return}
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload=()=>{XLSX_LOADED=true;cb()};
+  s.onerror=()=>alert('네트워크 연결이 필요합니다 (xlsx 라이브러리 로드)');
+  document.head.appendChild(s);
+}
+
+// ── 폴더 지정 (File System Access API) ────────────────────
+S.folderHandle = null;
+
+async function selectFolder(){
+  try{
+    const handle = await window.showDirectoryPicker({mode:'readwrite'});
+    S.folderHandle = handle;
+    document.getElementById('folder-path').textContent = `📁 ${handle.name}`;
+    document.getElementById('folder-path').style.color = 'var(--ok)';
+    setStatus('pick', `✅ 폴더 지정 완료: ${handle.name}`, 'ok');
+    await loadFromFolder();
+  }catch(e){
+    if(e.name!=='AbortError') setStatus('pick', `❌ 폴더 선택 실패: ${e.message}`, 'err');
+  }
+}
+
+async function loadFromFolder(){
+  if(!S.folderHandle){ setStatus('pick','⚠️ 먼저 폴더를 지정하세요','err'); return; }
+  S.pick = [];
+  const files = [];
+  for await(const entry of S.folderHandle.values()){
+    if(entry.kind==='file'&&(entry.name.endsWith('.xlsx')||entry.name.endsWith('.xls')))
+      files.push(entry);
+  }
+  if(!files.length){ setStatus('pick','📂 폴더가 비어있습니다. 파일을 업로드하세요','ok'); return; }
+  ensureXlsx(async()=>{
+    let total=0;
+    for(const entry of files){
+      const file = await entry.getFile();
+      const buf  = await file.arrayBuffer();
+      const wb   = XLSX.read(buf,{type:'array'});
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws,{defval:''});
+      S.pick = [...S.pick, ...data];
+      total += data.length;
+    }
+    updatePickInfo();
+    setStatus('pick', `✅ 폴더에서 ${files.length}개 파일 / ${total}행 로드 완료`, 'ok');
+  });
+}
+
+async function saveToFolder(fileName, arrayBuffer){
+  if(!S.folderHandle) return false;
+  try{
+    const fh = await S.folderHandle.getFileHandle(fileName,{create:true});
+    const wr = await fh.createWritable();
+    await wr.write(arrayBuffer); await wr.close();
+    return true;
+  }catch(e){ console.error('저장 실패:',e); return false; }
+}
+
+function readXlsx(file, type){
+  ensureXlsx(()=>{
+    const reader=new FileReader();
+    reader.onload=async(e)=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+        if(type==='stock')       parseStock(wb,e.target.result);
+        else if(type==='bichuk') parseBichuk(wb);
+        else if(type==='order')  parseOrder(wb);
+        else if(type==='pick')   await parsePick(wb,e.target.result,file.name);
+      }catch(err){setStatus(type,'❌ 읽기 실패: '+err.message,'err')}
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ── 파일 파싱 ────────────────────────────────────────────────────
+function parseStock(wb, buf){
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  let hRow=0;
+  for(let i=0;i<Math.min(raw.length,5);i++){if(raw[i].some(c=>String(c).trim()==='로케이션')){hRow=i;break}}
+  const hdrs=raw[hRow].map(h=>String(h).trim());
+  const rows=raw.slice(hRow+1).filter(r=>r.some(c=>c!=='')).map(r=>{
+    const o={};hdrs.forEach((h,i)=>o[h]=r[i]);return o;
+  });
+
+  // FFFFF 별도 집계
+  const fffffMap={};
+  rows.filter(r=>String(r['로케이션']||'').trim()==='FFFFF').forEach(r=>{
+    const name=String(r['상품명']||'').trim();
+    const qty=parseFloat(r['총수량']||r['합계 : 총수량']||r['수량']||0);
+    if(name) fffffMap[name]=(fffffMap[name]||0)+qty;
+  });
+  S._fffffMap=fffffMap;
+
+  // 정상 재고 (FFFFF, SHPLOC 제외)
+  S.stock=rows.filter(r=>!['FFFFF','SHPLOC'].includes(String(r['로케이션']||'').trim()) && (r['상품3PL코드']||r['상품코드']))
+    .map(r=>({
+      _name:String(r['상품명']||'').trim(),
+      _code:String(r['상품3PL코드']||r['상품코드']||'').trim(),
+      _qty:parseFloat(r['총수량']||r['합계 : 총수량']||r['수량']||0),
+      _exp:String(r['유통기한']||''),
+      _loc:String(r['로케이션']||'').trim(),
+    }));
+
+  // stock_all (SHPLOC만 제외, FFFFF 포함)
+  S.stock_all=rows.filter(r=>String(r['로케이션']||'').trim()!=='SHPLOC' && (r['상품3PL코드']||r['상품코드']))
+    .map(r=>({
+      _name:String(r['상품명']||'').trim(),
+      _qty:parseFloat(r['총수량']||r['합계 : 총수량']||r['수량']||0),
+      _exp:String(r['유통기한']||''),
+      _isFFFFF:String(r['로케이션']||'').trim()==='FFFFF',
+    }));
+
+  setStatus('stock',`✅ ${S.stock.length}행 로드 완료 (FFFFF/SHPLOC 제외)`,'ok');
+}
+
+function parseBichuk(wb){
+  const shName=wb.SheetNames.find(n=>n==='Sheet')||wb.SheetNames[wb.SheetNames.length-1];
+  const ws=wb.Sheets[shName];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  const hdrs=raw[0].map(h=>String(h));
+  const rows=raw.slice(1).filter(r=>r[0]&&String(r[0]).trim()!=='').map(r=>{
+    const o={};hdrs.forEach((h,i)=>o[h]=r[i]);return o;
+  }).filter(r=>!String(Object.values(r)[1]||'').includes('합'));
+  S.bichuk=rows.map(r=>{
+    const nk=Object.keys(r).find(k=>k.includes('탁')&&k.includes('품')&&k.includes('명'))||Object.keys(r)[1];
+    return {_name:String(r[nk]||'').trim(),_qty:parseFloat(r['재고수량'])||0,_exp:String(r['소비일자']||'')};
+  }).filter(r=>r._name);
+  setStatus('bichuk',`✅ ${S.bichuk.length}행 로드 완료`,'ok');
+}
+
+function parseOrder(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  S.order=XLSX.utils.sheet_to_json(ws,{defval:''}).map(r=>{
+    const o={};Object.keys(r).forEach(k=>o[k.trim()]=r[k]);return o;
+  });
+  setStatus('order',`✅ ${S.order.length}행 로드 완료`,'ok');
+}
+
+async function parsePick(wb, buf, fileName){
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+  if(!data.length){setStatus('pick','⚠️ 데이터 없음','err');return}
+  const normDate=v=>{
+    if(!v)return'';
+    if(typeof v==='number')return String(v).substring(0,8).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3');
+    return String(v).substring(0,10);
+  };
+  const dates=[...new Set(data.map(r=>normDate(r['입고일자'])))].filter(d=>d.length===10);
+  const exist=new Set(S.pick.map(r=>normDate(r['입고일자'])));
+  const dup=dates.filter(d=>exist.has(d));
+  const newD=dates.filter(d=>!exist.has(d));
+  if(dup.length&&newD.length===0){
+    if(!confirm(`${dup[0]} 날짜가 이미 있습니다. 덮어씌울까요?`)){setStatus('pick','취소','err');return}
+    S.pick=S.pick.filter(r=>!dup.includes(normDate(r['입고일자'])));
+  }
+  S.pick=[...S.pick,...data];
+  localStorage.setItem('gfs_pick',JSON.stringify(S.pick));
+  updatePickInfo();
+
+  // 폴더에 저장
+  const targetDate=(newD[0]||dup[0]||'').replace(/-/g,'');
+  const allDays=new Set(S.pick.map(r=>normDate(r['입고일자']))).size;
+  if(S.folderHandle && buf){
+    const saveFileName=`picking_${targetDate}.xlsx`;
+    const saved=await saveToFolder(saveFileName, buf);
+    setStatus('pick', saved
+      ? `✅ ${newD[0]||dup[0]} 추가 → 📁 ${saveFileName} 저장됨 (누적 ${allDays}일)`
+      : `✅ ${newD[0]||dup[0]} 추가 완료 (폴더 저장 실패 - 권한 확인)`, 'ok');
+  } else {
+    setStatus('pick',`✅ ${(newD[0]||dup[0])||''} 추가 완료 (누적 ${allDays}일)${S.folderHandle?'':' ⚠️ 폴더 미지정'}`,'ok');
+  }
+}
+
+function updatePickInfo(){
+  if(!S.pick.length)return;
+  const dates=[...new Set(S.pick.map(r=>{
+    const v=r['입고일자'];
+    if(typeof v==='number')return String(v).substring(0,8).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3');
+    return String(v||'').substring(0,10);
+  }))].filter(d=>d.length===10).sort();
+  document.getElementById('pick-days').textContent=dates.length;
+  document.getElementById('pick-rows').textContent=S.pick.length.toLocaleString();
+  document.getElementById('pick-last').textContent=dates[dates.length-1]||'-';
+  document.getElementById('pick-tags').innerHTML=dates.map(d=>`<span class="pick-tag">${d.substring(5)}</span>`).join('');
+}
+
+function clearPick(){
+  if(!confirm('할당피킹 누적 데이터를 초기화할까요?'))return;
+  S.pick=[];localStorage.removeItem('gfs_pick');
+  document.getElementById('pick-days').textContent='0';
+  document.getElementById('pick-rows').textContent='0';
+  document.getElementById('pick-last').textContent='-';
+  document.getElementById('pick-tags').innerHTML='';
+  setStatus('pick','🗑 초기화 완료','ok');
+}
+
+function setStatus(type,msg,cls){
+  const el=document.getElementById('us-'+type);
+  el.textContent=msg;el.className='upload-status '+(cls==='ok'?'us-ok':'us-err');
+}
+
+// ── 로컬스토리지 복원 ─────────────────────────────────────────
+try{const saved=localStorage.getItem('gfs_pick');if(saved){S.pick=JSON.parse(saved);updatePickInfo()}}catch(e){}
+
+// ── 분석 ─────────────────────────────────────────────────────
+function analyze(){
+  if(!S.stock){alert('현재고(WMS) 파일을 먼저 업로드하세요');return}
+  if(!S.pick.length){alert('할당피킹 파일을 먼저 업로드하세요');return}
+
+  const DANGER_D=parseInt(document.getElementById('set-danger').value)||3;
+  const WARN_D  =parseInt(document.getElementById('set-warn').value)||7;
+  const ADU_D   =parseInt(document.getElementById('set-adu').value)||14;
+  const TOP_PCT =parseInt(document.getElementById('set-top').value)||30;
+  const BOT_PCT =parseInt(document.getElementById('set-bot').value)||30;
+  const EXP_D   =parseInt(document.getElementById('set-exp').value)||30;
+
+  // 1. 현재고 합산 (WMS + 비축)
+  const stockMap={};
+  S.stock.forEach(r=>{
+    const n=r._name,c=r._code,q=r._qty,e=r._exp;
+    if(!n)return;
+    if(!stockMap[n])stockMap[n]={wms:0,bichuk:0,code:c,exps:[]};
+    stockMap[n].wms+=q;
+    if(e)stockMap[n].exps.push({qty:q,exp:e});
+  });
+  if(S.bichuk){
+    S.bichuk.forEach(r=>{
+      const n=r._name,q=r._qty;
+      if(!n)return;
+      if(!stockMap[n])stockMap[n]={wms:0,bichuk:0,code:'',exps:[]};
+      stockMap[n].bichuk+=q;
+    });
+  }
+
+  // FFFFF 수량
+  const fffffMap=S._fffffMap||{};
+
+  // 2. ADU 계산
+  const cutoff=new Date(today);cutoff.setDate(cutoff.getDate()-ADU_D);
+  const cutStr=cutoff.toISOString().substring(0,10);
+  const normDate=v=>{
+    if(typeof v==='number')return String(v).substring(0,8).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3');
+    return String(v||'').substring(0,10);
+  };
+  const pickRec=S.pick.filter(r=>normDate(r['입고일자'])>=cutStr);
+  const bizDays=new Set(pickRec.map(r=>normDate(r['입고일자']))).size||1;
+  const aduMap={};
+  pickRec.forEach(r=>{
+    const n=String(r['상품명']||'').trim(),q=parseFloat(r['할당수량'])||0;
+    if(n)aduMap[n]=(aduMap[n]||0)+q;
+  });
+  Object.keys(aduMap).forEach(k=>aduMap[k]=Math.round(aduMap[k]/bizDays*10)/10);
+
+  // 3. 당일 미출
+  const missMap={};
+  S.pick.filter(r=>normDate(r['입고일자'])===todayStr).forEach(r=>{
+    const st=String(r['오더상태']||'').trim(),n=String(r['상품명']||'').trim();
+    if(!['미할당','부분할당','부분피킹'].includes(st))return;
+    let m=0;
+    if(st==='미할당')   m=parseFloat(r['주문수량'])||0;
+    if(st==='부분할당') m=(parseFloat(r['주문수량'])||0)-(parseFloat(r['할당수량'])||0);
+    if(st==='부분피킹') m=(parseFloat(r['주문수량'])||0)-(parseFloat(r['피킹수량'])||0);
+    if(m>0)missMap[n]=(missMap[n]||0)+m;
+  });
+
+  // 4. 중요도 (ADU>0만)
+  const validAdus=Object.entries(stockMap)
+    .map(([n,s])=>({n,adu:aduMap[n]||0}))
+    .filter(r=>r.adu>0)
+    .sort((a,b)=>b.adu-a.adu);
+  const total=validAdus.length||1;
+  const rankMap={};
+  validAdus.forEach((r,i)=>{rankMap[r.n]=Math.round((i+1)/total*100*10)/10});
+
+  function getImp(name){
+    const adu=aduMap[name]||0;
+    if(adu===0)return{label:'미회전',code:'0',pct:100};
+    const pct=rankMap[name]||100;
+    if(pct<=TOP_PCT)return{label:'⭐⭐⭐ 주력',code:'3',pct};
+    if(pct<=100-BOT_PCT)return{label:'⭐⭐ 일반',code:'2',pct};
+    return{label:'⭐ 저회전',code:'1',pct};
+  }
+
+  // 5. result 생성
+  const result=Object.entries(stockMap).map(([name,s])=>{
+    const wms=Math.round(s.wms),bichuk=Math.round(s.bichuk),total2=wms+bichuk;
+    const adu=aduMap[name]||0;
+    const dos=adu>0?Math.round(total2/adu*10)/10:999;
+    const miss=missMap[name]||0;
+    const imp=getImp(name);
+    const fffff=Math.round(fffffMap[name]||0);
+    let grade;
+    if(miss>0)                    grade='🚨 즉시위험';
+    else if(adu>0&&dos<DANGER_D)  grade='🔴 위험';
+    else if(adu>0&&dos<WARN_D)    grade='⚠️ 주의';
+    else if(adu===0)              grade='➖ 미회전';
+    else                          grade='✅ 정상';
+    return{code:s.code,name,wms,bichuk,total:total2,adu,dos,miss,grade,
+           imp:imp.label,impCode:imp.code,impPct:imp.pct,fffff,exps:s.exps};
+  });
+
+  // 우선순위 점수
+  const riskAll=result.filter(r=>r.grade.includes('위험')||r.grade==='⚠️ 주의');
+  const byDos=[...riskAll].sort((a,b)=>a.dos-b.dos);
+  const byAdu=[...riskAll].sort((a,b)=>b.adu-a.adu);
+  riskAll.forEach(r=>{r.score=Math.round(((byDos.indexOf(r)+1)*.7+(byAdu.indexOf(r)+1)*.3)*10)/10});
+  result.forEach(r=>{if(!r.score)r.score=9999});
+
+  const danger=result.filter(r=>r.grade.includes('위험')).sort((a,b)=>a.score-b.score);
+  const warn  =result.filter(r=>r.grade==='⚠️ 주의').sort((a,b)=>a.score-b.score);
+  const normal=result.filter(r=>r.grade==='✅ 정상');
+  const zero  =result.filter(r=>r.grade==='➖ 미회전');
+
+  // 6. 부진재고 계산 (stock_all 기반, 유통기한별)
+  const batchMap={};
+  (S.stock_all||[]).forEach(r=>{
+    if(!r._name||!r._exp)return;
+    let exp=String(r._exp).replace(/[^0-9]/g,'');
+    if(exp.length!==8)return;
+    exp=`${exp.slice(0,4)}-${exp.slice(4,6)}-${exp.slice(6,8)}`;
+    const key=`${r._name}__${exp}__${r._isFFFFF?'F':'N'}`;
+    if(!batchMap[key])batchMap[key]={name:r._name,exp,qty:0,isFFFFF:r._isFFFFF};
+    batchMap[key].qty+=r._qty;
+  });
+  if(S.bichuk){
+    S.bichuk.forEach(r=>{
+      if(!r._name||!r._exp)return;
+      let exp=String(r._exp).replace(/[^0-9]/g,'');
+      if(exp.length!==8)return;
+      exp=`${exp.slice(0,4)}-${exp.slice(4,6)}-${exp.slice(6,8)}`;
+      const key=`${r._name}__${exp}__B`;
+      if(!batchMap[key])batchMap[key]={name:r._name,exp,qty:0,isBichuk:true};
+      batchMap[key].qty+=r._qty;
+    });
+  }
+  const todayD=new Date(todayStr);
+  const dormList=Object.values(batchMap).map(b=>{
+    const expD=new Date(b.exp);
+    const daysLeft=Math.floor((expD-todayD)/(1000*60*60*24));
+    if(daysLeft<0)return null;
+    const adu=aduMap[b.name]||0;
+    const expected=Math.floor(adu*daysLeft);
+    const remaining=Math.round(b.qty-expected);
+    let dgrade;
+    if(b.isFFFFF)         dgrade='FFFFF';
+    else if(remaining>0)  dgrade='소진불가';
+    else if(daysLeft<=EXP_D) dgrade='임박';
+    else                  dgrade='정상';
+    return{...b,daysLeft,adu,expected,remaining,dgrade};
+  }).filter(Boolean);
+
+  const dormFFFFF=dormList.filter(r=>r.dgrade==='FFFFF').sort((a,b)=>a.daysLeft-b.daysLeft);
+  const dormNoOut=dormList.filter(r=>r.dgrade==='소진불가').sort((a,b)=>a.daysLeft-b.daysLeft);
+  const dormExp  =dormList.filter(r=>r.dgrade==='임박').sort((a,b)=>a.daysLeft-b.daysLeft);
+  const dormZero =zero;
+
+  _lastResult=result;_lastDormant=dormList;
+
+  // 7. 렌더링
+  renderHome(result,danger,warn);
+  renderRisk(result,danger,warn);
+  renderDormant(dormFFFFF,dormNoOut,dormExp,dormZero);
+  renderMsg(danger,warn);
+  switchTab('home');
+}
+
+// ── 홈 렌더링 ─────────────────────────────────────────────────
+function renderHome(result,danger,warn){
+  const normal=result.filter(r=>r.grade==='✅ 정상');
+  const coreDgr=result.filter(r=>r.impCode==='3'&&(r.grade.includes('위험')||r.grade==='⚠️ 주의'));
+  document.getElementById('hc-total').textContent=result.filter(r=>r.grade!=='➖ 미회전').length;
+  document.getElementById('hc-danger').textContent=danger.length;
+  document.getElementById('hc-warn').textContent=warn.length;
+  document.getElementById('hc-core').textContent=coreDgr.length;
+
+  _cacheHome=result.filter(r=>r.adu>0).sort((a,b)=>b.adu-a.adu);
+  renderHomeTable(_cacheHome);
+
+  // 즉시 조치
+  const urgent=danger.sort((a,b)=>a.score-b.score);
+  const utb=document.getElementById('home-urgent-body');
+  const maxDos=14;
+  if(!urgent.length){
+    utb.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--ok)">✅ 즉시 조치 필요 SKU 없음</td></tr>`;
+  } else {
+    utb.innerHTML=urgent.map((r,i)=>{
+      const d=r.dos<999?r.dos:null;
+      const pct=d?Math.min(d/maxDos*100,100):0;
+      const dc=d<3?'var(--danger)':'var(--warn)';
+      const bar=d?`<div class="dos-wrap"><div class="dos-bg"><div class="dos-fill" style="width:${pct}%;background:${dc}"></div></div><span class="dos-val" style="color:${dc}">${d.toFixed(1)}일</span></div>`:'-';
+      return`<tr class="${i%2?'':'row-d'}">
+        <td class="l" style="font-weight:${r.impCode==='3'?600:400}">${r.name}</td>
+        <td>${r.total.toLocaleString()}</td><td>${r.adu.toFixed(1)}</td>
+        <td>${bar}</td>
+        <td><span class="${impClass(r.impCode)}">${r.imp}</span></td>
+        <td style="color:${r.miss>0?'var(--danger)':'var(--text3)'};font-weight:${r.miss>0?600:400}">${r.miss>0?r.miss.toLocaleString():'-'}</td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('home-empty').style.display='none';
+  document.getElementById('home-body').style.display='block';
+}
+
+function renderHomeTable(rows){
+  const tb=document.getElementById('home-sku-body');
+  let filtered=[...rows];
+  if(_homeImpF!=='all') filtered=filtered.filter(r=>r.impCode===_homeImpF);
+  if(_homeStateF==='danger') filtered=filtered.filter(r=>r.grade.includes('위험'));
+  else if(_homeStateF==='warn') filtered=filtered.filter(r=>r.grade==='⚠️ 주의');
+  else if(_homeStateF==='ok') filtered=filtered.filter(r=>r.grade==='✅ 정상');
+  if(_homeSortBy==='dos') filtered.sort((a,b)=>a.dos-b.dos);
+  else if(_homeSortBy==='score') filtered.sort((a,b)=>a.score-b.score);
+  else filtered.sort((a,b)=>b.adu-a.adu);
+
+  if(!filtered.length){tb.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text3)">해당 SKU 없음</td></tr>`;return}
+  const maxAdu=Math.max(...filtered.map(r=>r.adu),1);
+  const maxDos=14;
+  tb.innerHTML=filtered.map((r,i)=>{
+    const isDgr=r.grade.includes('위험'),isWrn=r.grade==='⚠️ 주의';
+    const bg=isDgr?'row-d':isWrn?'row-w':'';
+    const d=r.dos<999?r.dos:null;
+    const pct=d?Math.min(d/maxDos*100,100):100;
+    const dc=d<3?'var(--danger)':d<7?'var(--warn)':'var(--ok)';
+    const bar=d?`<div class="dos-wrap"><div class="dos-bg"><div class="dos-fill" style="width:${pct}%;background:${dc}"></div></div><span class="dos-val" style="color:${dc}">${d.toFixed(1)}일</span></div>`:`<span style="color:var(--text3)">-</span>`;
+    const aduFill=Math.round(r.adu/maxAdu*100);
+    const state=isDgr?`<span class="badge bd">${r.grade}</span>`:isWrn?`<span class="badge bw">⚠️ 주의</span>`:`<span class="badge bo">✅ 정상</span>`;
+    return`<tr class="${bg}">
+      <td style="text-align:center;color:var(--text3);font-weight:600">${i+1}</td>
+      <td class="l">${r.name}</td>
+      <td>${r.wms.toLocaleString()}</td>
+      <td>${r.bichuk.toLocaleString()}</td>
+      <td><strong>${r.total.toLocaleString()}</strong></td>
+      <td style="color:${r.fffff>0?'var(--purple)':'var(--text3)'};font-weight:${r.fffff>0?600:400}">${r.fffff>0?r.fffff.toLocaleString():'-'}</td>
+      <td><div class="adu-wrap"><div class="adu-bg"><div class="${r.impCode==='1'?'adu-fill low':'adu-fill'}" style="width:${aduFill}%"></div></div><span style="font-size:11px;min-width:30px;text-align:right">${r.adu.toFixed(1)}</span></div></td>
+      <td>${bar}</td>
+      <td><span class="${impClass(r.impCode)}">${r.imp}</span><span class="ipct">상위 ${r.impPct}%</span></td>
+      <td style="text-align:center">${state}</td>
+    </tr>`;
+  }).join('');
+}
+
+function homeFilter(type,val,btn){
+  btn.closest('.filter-row').querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  if(type==='imp')_homeImpF=val;
+  else _homeStateF=val;
+  renderHomeTable(_cacheHome);
+}
+function homeSort(v){_homeSortBy=v;renderHomeTable(_cacheHome)}
+
+// ── 위험재고 렌더링 ────────────────────────────────────────────
+function renderRisk(result,danger,warn){
+  const normal=result.filter(r=>r.grade==='✅ 정상');
+  document.getElementById('rc-total').textContent=result.filter(r=>r.grade!=='➖ 미회전').length;
+  document.getElementById('rc-danger').textContent=danger.length;
+  document.getElementById('rc-warn').textContent=warn.length;
+  document.getElementById('rc-ok').textContent=normal.length;
+  _cacheDanger=[...danger];_cacheWarn=[...warn];
+  renderRiskTable('danger-body',danger);
+  renderRiskTable('warn-body',warn);
+  document.getElementById('risk-empty').style.display='none';
+  document.getElementById('risk-body').style.display='block';
+}
+
+function renderRiskTable(tbodyId,rows){
+  const tb=document.getElementById(tbodyId);
+  const showScore=_scoreVisible;
+  const type=tbodyId.includes('danger')?'danger':'warn';
+  if(!rows.length){
+    tb.innerHTML=`<tr><td colspan="${showScore?11:10}" style="text-align:center;padding:20px;color:${type==='danger'?'var(--ok)':'var(--text3)'}">${type==='danger'?'✅ 위험 SKU 없음':'주의 SKU 없음 ✅'}</td></tr>`;
+    return;
+  }
+  const maxDos=14;
+  tb.innerHTML=rows.map(r=>{
+    const isDgr=r.grade.includes('위험');
+    const d=r.dos<999?r.dos:null;
+    const pct=d?Math.min(d/maxDos*100,100):0;
+    const dc=d<3?'var(--danger)':'var(--warn)';
+    const bar=d?`<div class="dos-wrap"><div class="dos-bg"><div class="dos-fill" style="width:${pct}%;background:${dc}"></div></div><span class="dos-val" style="color:${dc}">${d.toFixed(1)}일</span></div>`:'<span>-</span>';
+    const scoreCell=showScore?`<td style="font-size:11px;color:var(--text3)">${r.score}</td>`:'';
+    return`<tr class="${isDgr?'row-d':'row-w'}" data-imp="${r.impCode}">
+      <td class="l">${r.name}</td>
+      <td>${r.wms.toLocaleString()}</td><td>${r.bichuk.toLocaleString()}</td>
+      <td><strong>${r.total.toLocaleString()}</strong></td>
+      <td>${r.adu.toFixed(1)}</td>
+      <td>${bar}</td>
+      <td style="color:${r.miss>0?'var(--danger)':'var(--text3)'};font-weight:${r.miss>0?600:400}">${r.miss>0?r.miss.toLocaleString():'-'}</td>
+      <td><span class="${impClass(r.impCode)}">${r.imp}</span></td>
+      ${scoreCell}
+      <td style="text-align:center"><span class="badge ${isDgr?'bd':'bw'}">${r.grade}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function riskFilter(section,imp,btn){
+  btn.closest('.sec-right').querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const cache=section==='danger'?_cacheDanger:_cacheWarn;
+  const filtered=imp==='all'?cache:cache.filter(r=>r.impCode===imp);
+  renderRiskTable(section+'-body',filtered);
+}
+
+function riskSort(section,by){
+  const cache=section==='danger'?[..._cacheDanger]:[..._cacheWarn];
+  if(by==='dos') cache.sort((a,b)=>a.dos-b.dos);
+  else if(by==='adu') cache.sort((a,b)=>b.adu-a.adu);
+  else cache.sort((a,b)=>a.score-b.score);
+  renderRiskTable(section+'-body',cache);
+}
+
+function toggleScore(){
+  _scoreVisible=!_scoreVisible;
+  const btn=document.getElementById('score-tog');
+  btn.textContent=_scoreVisible?'점수 숨기기':'점수 보기';
+  document.querySelectorAll('.score-col').forEach(th=>th.style.display=_scoreVisible?'':'none');
+  renderRiskTable('danger-body',_cacheDanger);
+  renderRiskTable('warn-body',_cacheWarn);
+}
+
+// ── 부진재고 렌더링 ────────────────────────────────────────────
+function renderDormant(fffff,noout,exp,zero){
+  document.getElementById('dc-fffff').textContent=fffff.length;
+  document.getElementById('dc-noout').textContent=noout.length;
+  document.getElementById('dc-exp').textContent=exp.length;
+  document.getElementById('dc-zero').textContent=zero.length;
+  renderDormTable('dorm-fffff-body',fffff,true);
+  renderDormTable('dorm-noout-body',noout);
+  renderDormTable('dorm-exp-body',exp);
+  renderZeroTable(zero);
+  document.getElementById('dorm-empty').style.display='none';
+  document.getElementById('dorm-body').style.display='block';
+}
+
+function renderDormTable(tbodyId,rows,isFFFFF=false){
+  const tb=document.getElementById(tbodyId);
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--text3)">해당 없음 ✅</td></tr>`;return}
+  tb.innerHTML=rows.map((r,i)=>{
+    const dl=r.daysLeft;
+    const dlc=dl<=7?'var(--danger)':dl<=30?'var(--warn)':'var(--text2)';
+    const rc=r.remaining>0?'var(--danger)':'var(--ok)';
+    const badge=isFFFFF?`<span class="badge bp">출고불가</span>`
+      :r.dgrade==='소진불가'?`<span class="badge bd">소진불가</span>`:`<span class="badge bw">임박</span>`;
+    return`<tr class="${isFFFFF?'row-p':i%2?'':'row-w'}">
+      <td class="l">${r.name}${isFFFFF?'<span style="font-size:10px;color:var(--purple);margin-left:4px;font-weight:600">[FFFFF]</span>':''}</td>
+      <td style="text-align:center">${r.exp}</td>
+      <td style="color:${dlc};font-weight:600;text-align:center">${dl}일</td>
+      <td>${Math.round(r.qty).toLocaleString()}</td>
+      <td>${r.adu.toFixed(1)}</td>
+      <td>${r.expected.toLocaleString()}</td>
+      <td style="color:${rc};font-weight:${r.remaining>0?600:400}">${r.remaining>0?'+':''}${r.remaining.toLocaleString()}</td>
+      <td style="text-align:center">${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderZeroTable(rows){
+  const tb=document.getElementById('dorm-zero-body');
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--ok)">✅ 미회전 SKU 없음</td></tr>`;return}
+  tb.innerHTML=rows.map((r,i)=>{
+    const exp=r.exps&&r.exps.length?r.exps.sort((a,b)=>a.exp.localeCompare(b.exp))[0].exp:'-';
+    return`<tr class="${i%2?'':''}">
+      <td class="l">${r.name}</td>
+      <td>${r.wms.toLocaleString()}</td>
+      <td>${r.bichuk.toLocaleString()}</td>
+      <td><strong>${r.total.toLocaleString()}</strong></td>
+      <td style="text-align:center">${exp}</td>
+      <td style="font-size:11px;color:var(--text3)">14일간 출고 이력 없음</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 화주사 안내문 ──────────────────────────────────────────────
+function renderMsg(danger,warn){
+  const mm=pad(today.getMonth()+1),dd=pad(today.getDate());
+  const missItems=danger.filter(r=>r.miss>0);
+  const dosItems =danger.filter(r=>r.miss===0);
+  const lm=missItems.length?missItems.map(r=>`  · ${r.name} — 재고 ${r.total.toLocaleString()}BOX / 미출 ${r.miss.toLocaleString()}BOX`).join('\n'):'  · 해당 없음';
+  const ld=dosItems.length ?dosItems.map(r=>`  · ${r.name} — 재고 ${r.total.toLocaleString()}BOX / 약 ${r.dos.toFixed(1)}일치`).join('\n'):'  · 해당 없음';
+  const lw=warn.length     ?warn.map(r=>`  · ${r.name} — 재고 ${r.total.toLocaleString()}BOX / 약 ${r.dos.toFixed(1)}일치`).join('\n'):'  · 해당 없음';
+  window._msgTxt=`[재고 부족 사전 안내]\n안녕하세요, GFS 안성센터입니다.\n\n금일(${mm}/${dd}) 기준 아래 품목의 재고 현황을 안내드립니다.\n\n■ 즉시 입고 요청 (미출 발생)\n${lm}\n\n■ 긴급 입고 요청 (${document.getElementById('set-danger').value}일 미만)\n${ld}\n\n■ 입고 일정 확인 (3~7일)\n${lw}\n\n입고 계획 확인 및 일정 공유 부탁드립니다.\n감사합니다. GFS 안성센터 드림`;
+  document.getElementById('msg-txt').textContent=window._msgTxt;
+}
+
+function copyMsg(){
+  navigator.clipboard.writeText(window._msgTxt||'').then(()=>{
+    const btns=document.querySelectorAll('.msg-actions .btn');
+    btns.forEach(b=>{const o=b.textContent;b.textContent='✅ 복사 완료!';setTimeout(()=>b.textContent=o,1500)});
+  });
+}
+
+// ── 결과 저장/불러오기 ─────────────────────────────────────────
+function saveResult(){
+  if(!_lastResult){alert('먼저 분석을 실행하세요');return}
+  const payload=JSON.stringify({result:_lastResult,dormant:_lastDormant,savedAt:todayStr});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
+  a.download=`gfs_result_${todayStr}.txt`;a.click();
+}
+
+function loadResult(e){
+  const f=e.target.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const payload=JSON.parse(ev.target.result);
+      _lastResult=payload.result;_lastDormant=payload.dormant||[];
+      const danger=payload.result.filter(r=>r.grade.includes('위험'));
+      const warn  =payload.result.filter(r=>r.grade==='⚠️ 주의');
+      const dormFFFFF=_lastDormant.filter(r=>r.dgrade==='FFFFF');
+      const dormNoOut=_lastDormant.filter(r=>r.dgrade==='소진불가');
+      const dormExp  =_lastDormant.filter(r=>r.dgrade==='임박');
+      const dormZero =payload.result.filter(r=>r.grade==='➖ 미회전');
+      renderHome(payload.result,danger,warn);
+      renderRisk(payload.result,danger,warn);
+      renderDormant(dormFFFFF,dormNoOut,dormExp,dormZero);
+      renderMsg(danger,warn);
+      document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
+      switchTab('home');
+      alert(`✅ ${payload.savedAt} 데이터 로드 완료`);
+    }catch(err){alert('❌ 파일 읽기 실패: '+err.message)}
+  };
+  reader.readAsText(f);
+}
+
+// ── 엑셀 내보내기 ─────────────────────────────────────────────
+function exportExcel(){
+  if(!_lastResult){alert('먼저 분석을 실행하세요');return}
+  ensureXlsx(()=>{
+    const wb=XLSX.utils.book_new();
+    const hdrs=['상품코드','품명','WMS재고','비축재고','총재고','FFFFF','ADU','DoS','중요도','상태'];
+    const rows=[hdrs,..._lastResult
+      .filter(r=>r.grade!=='➖ 미회전')
+      .sort((a,b)=>{ const o={'🚨 즉시위험':0,'🔴 위험':1,'⚠️ 주의':2,'✅ 정상':3};return(o[a.grade]||9)-(o[b.grade]||9)})
+      .map(r=>[r.code,r.name,r.wms,r.bichuk,r.total,r.fffff>0?r.fffff:'-',r.adu,r.dos<999?r.dos:'-',r.imp,r.grade])
+    ];
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[10,30,10,10,10,8,8,8,14,12].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb,ws,'재고현황');
+    const mm=pad(today.getMonth()+1),dd=pad(today.getDate());
+    XLSX.writeFile(wb,`GFS_재고현황_${today.getFullYear()}${mm}${dd}.xlsx`);
+  });
+}
+
+// ── 유틸 ──────────────────────────────────────────────────────
+function impClass(code){
+  if(code==='3')return'i3';if(code==='2')return'i2';if(code==='1')return'i1';return'i0';
+}
+
+// ══════════════════════════════════════════════════════
+// 보고서 자동 생성 함수
+// ══════════════════════════════════════════════════════
+
+// ── 공통: 보고서 데이터 준비 ───────────────────────────
+function prepareReportData() {
+  if (!_lastResult) { alert('먼저 분석을 실행하세요'); return null; }
+  const result = _lastResult;
+  const danger  = result.filter(r => r.grade.includes('위험'));
+  const warn    = result.filter(r => r.grade === '⚠️ 주의');
+  const normal  = result.filter(r => r.grade === '✅ 정상');
+  const zero    = result.filter(r => r.grade === '➖ 미회전');
+  const coreDgr = result.filter(r => r.impCode === '3' && (r.grade.includes('위험') || r.grade === '⚠️ 주의'));
+  const aduTop  = result.filter(r => r.adu > 0).sort((a, b) => b.adu - a.adu);
+  const totalOut = aduTop.reduce((s, r) => s + r.adu, 0) || 1;
+
+  return { result, danger, warn, normal, zero, coreDgr, aduTop, totalOut,
+           dateStr: todayStr };
+}
+
+// ── Excel 보고서 생성 ──────────────────────────────────
+function generateExcel() {
+  const d = prepareReportData();
+  if (!d) return;
+  ensureXlsx(() => {
+    const wb = XLSX.utils.book_new();
+    const FONT = '맑은 고딕';
+
+    // 스타일 헬퍼
+    const hStyle = (bg = '1F4E79', fc = 'FFFFFF', sz = 11) => ({
+      font: { name: FONT, bold: true, sz, color: { rgb: fc } },
+      fill: { fgColor: { rgb: bg } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+      border: { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} }
+    });
+    const dStyle = (align = 'center', bold = false, fc = '000000', bg = 'FFFFFF') => ({
+      font: { name: FONT, bold, sz: 10, color: { rgb: fc } },
+      fill: { fgColor: { rgb: bg } },
+      alignment: { horizontal: align, vertical: 'center' },
+      border: { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} }
+    });
+
+    const applyStyle = (ws, range, style) => {
+      for (let r = range.s.r; r <= range.e.r; r++) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({r, c});
+          if (!ws[addr]) ws[addr] = { v: '', t: 's' };
+          ws[addr].s = style;
+        }
+      }
+    };
+
+    // ── [1] 요약 시트 ──────────────────────────────────
+    const summaryData = [
+      ['GFS 안성센터 · 재고 현황 요약', '', '', ''],
+      [`기준일: ${d.dateStr}`, '', '', ''],
+      ['', '', '', ''],
+      ['구분', '수량', '기준', '비고'],
+      ['전체 SKU',        d.result.filter(r=>r.grade!=='➖ 미회전').length, '-', '관리 대상 전체'],
+      ['🔴 위험 SKU',     d.danger.length,  'DoS < 3일',  '즉시 조치 필요'],
+      ['⚠️ 주의 SKU',    d.warn.length,    'DoS 3~7일',  '모니터링 강화'],
+      ['⭐ 주력 위험 SKU', d.coreDgr.length, 'ADU 상위30% + DoS<7일', '선제 대응 필요'],
+      ['🔇 미회전 SKU',   d.zero.length,    'ADU = 0',   '14일 출고 이력 없음'],
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
+    ws1['!cols'] = [{wch:24},{wch:10},{wch:20},{wch:22}];
+    ws1['!rows'] = [{hpt:28},{hpt:16},{hpt:8},{hpt:22}];
+    ws1['!merges'] = [
+      {s:{r:0,c:0},e:{r:0,c:3}},
+      {s:{r:1,c:0},e:{r:1,c:3}},
+    ];
+    // 타이틀 스타일
+    if(!ws1['A1']) ws1['A1']={v:summaryData[0][0],t:'s'};
+    ws1['A1'].s = { font:{name:FONT,bold:true,sz:14,color:{rgb:'FFFFFF'}},
+      fill:{fgColor:{rgb:'1F4E79'}}, alignment:{horizontal:'center',vertical:'center'} };
+    if(!ws1['A2']) ws1['A2']={v:summaryData[1][0],t:'s'};
+    ws1['A2'].s = { font:{name:FONT,sz:10,color:{rgb:'595959'}},
+      fill:{fgColor:{rgb:'F2F2F2'}}, alignment:{horizontal:'center',vertical:'center'} };
+    // 헤더 행
+    ['A4','B4','C4','D4'].forEach(addr => {
+      if(!ws1[addr]) ws1[addr]={v:'',t:'s'};
+      ws1[addr].s = hStyle('2E75B6','FFFFFF',10);
+    });
+    // 데이터 행
+    const dangerRows = [4]; // 위험(index 4 = row 5)
+    for (let i = 4; i <= 8; i++) {
+      const r = i + 1; // 1-based
+      const isDgr = i === 4;
+      const isWrn = i === 5;
+      const bg = isDgr ? 'FFCCCC' : isWrn ? 'FFF2CC' : 'FFFFFF';
+      ['A','B','C','D'].forEach((col, ci) => {
+        const addr = col + (i+1);
+        if(!ws1[addr]) ws1[addr]={v:'',t:'s'};
+        ws1[addr].s = dStyle(ci===0?'left':'center', ci===1, isDgr?'C00000':isWrn?'7F4F00':'000000', bg);
+      });
+    }
+    XLSX.utils.book_append_sheet(wb, ws1, '① 요약');
+
+    // ── [2] ADU TOP SKU 시트 ─────────────────────────────
+    const aduHeaders = ['순위','품명','ADU (14일)','총재고','DoS','중요도','상태'];
+    const aduRows = d.aduTop.map((r, i) => [
+      i+1, r.name, r.adu.toFixed(1),
+      r.total.toLocaleString(),
+      r.dos < 999 ? r.dos.toFixed(1)+'일' : '-',
+      r.imp, r.grade
+    ]);
+    const ws2 = XLSX.utils.aoa_to_sheet([aduHeaders, ...aduRows]);
+    ws2['!cols'] = [{wch:6},{wch:36},{wch:12},{wch:10},{wch:10},{wch:14},{wch:12}];
+    // 헤더 스타일
+    aduHeaders.forEach((_, ci) => {
+      const addr = XLSX.utils.encode_cell({r:0, c:ci});
+      if(!ws2[addr]) ws2[addr]={v:'',t:'s'};
+      ws2[addr].s = hStyle('2E75B6','FFFFFF',10);
+    });
+    // 데이터 스타일
+    aduRows.forEach((row, ri) => {
+      const r = d.aduTop[ri];
+      const isDgr = r.grade.includes('위험');
+      const isWrn = r.grade === '⚠️ 주의';
+      const bg = isDgr ? 'FFCCCC' : isWrn ? 'FFF2CC' : ri%2===0 ? 'F8FBFF' : 'FFFFFF';
+      row.forEach((_, ci) => {
+        const addr = XLSX.utils.encode_cell({r:ri+1, c:ci});
+        if(!ws2[addr]) ws2[addr]={v:'',t:'s'};
+        ws2[addr].s = dStyle(ci===1?'left':'center', ci===0, isDgr?'C00000':isWrn?'7F4F00':'000000', bg);
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, ws2, '② ADU TOP SKU');
+
+    // ── [3] 위험 SKU 시트 ────────────────────────────────
+    const riskHeaders = ['품명','WMS재고','비축재고','총재고','ADU','DoS','중요도','주력여부','상태'];
+    const riskRows = d.danger.sort((a,b)=>a.score-b.score).map(r => [
+      r.name, r.wms, r.bichuk, r.total,
+      r.adu.toFixed(1), r.dos<999?r.dos.toFixed(1)+'일':'-',
+      r.imp, r.impCode==='3'?'⭐ 주력':'', r.grade
+    ]);
+    const ws3 = XLSX.utils.aoa_to_sheet([riskHeaders, ...riskRows]);
+    ws3['!cols'] = [{wch:36},{wch:10},{wch:10},{wch:10},{wch:8},{wch:10},{wch:14},{wch:10},{wch:12}];
+    riskHeaders.forEach((_, ci) => {
+      const addr = XLSX.utils.encode_cell({r:0, c:ci});
+      if(!ws3[addr]) ws3[addr]={v:'',t:'s'};
+      ws3[addr].s = hStyle('C00000','FFFFFF',10);
+    });
+    riskRows.forEach((row, ri) => {
+      const isCore = row[7] === '⭐ 주력';
+      const bg = isCore ? 'FFE0E0' : ri%2===0 ? 'FFF8F8' : 'FFFFFF';
+      row.forEach((_, ci) => {
+        const addr = XLSX.utils.encode_cell({r:ri+1, c:ci});
+        if(!ws3[addr]) ws3[addr]={v:'',t:'s'};
+        ws3[addr].s = dStyle(ci===0?'left':'center', isCore&&ci===7, 'C00000', bg);
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, ws3, '③ 위험 SKU');
+
+    // ── [4] 미회전 SKU 시트 ─────────────────────────────
+    const zeroHeaders = ['품명','WMS재고','비축재고','총재고','비고'];
+    const zeroRows = d.zero.filter(r=>r.total>0).map(r => [
+      r.name, r.wms, r.bichuk, r.total, '14일간 출고 이력 없음'
+    ]);
+    const ws4 = XLSX.utils.aoa_to_sheet([zeroHeaders, ...zeroRows]);
+    ws4['!cols'] = [{wch:36},{wch:10},{wch:10},{wch:10},{wch:24}];
+    zeroHeaders.forEach((_, ci) => {
+      const addr = XLSX.utils.encode_cell({r:0, c:ci});
+      if(!ws4[addr]) ws4[addr]={v:'',t:'s'};
+      ws4[addr].s = hStyle('595959','FFFFFF',10);
+    });
+    zeroRows.forEach((row, ri) => {
+      const bg = ri%2===0 ? 'F5F5F5' : 'FFFFFF';
+      row.forEach((_, ci) => {
+        const addr = XLSX.utils.encode_cell({r:ri+1, c:ci});
+        if(!ws4[addr]) ws4[addr]={v:'',t:'s'};
+        ws4[addr].s = dStyle(ci===0?'left':'center', false, '333333', bg);
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, ws4, '④ 미회전 SKU');
+
+    // 다운로드
+    const mm = pad(today.getMonth()+1), dd2 = pad(today.getDate());
+    XLSX.writeFile(wb, `GFS_재고보고서_${today.getFullYear()}${mm}${dd2}.xlsx`);
+  });
+}
+
+// ── PPT 보고서 생성 ────────────────────────────────────
+function generatePPT() {
+  const d = prepareReportData();
+  if (!d) return;
+
+  // PptxGenJS CDN 동적 로드
+  if (window.PptxGenJS) {
+    _buildPPT(d);
+  } else {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+    s.onload = () => _buildPPT(d);
+    s.onerror = () => alert('PPT 라이브러리 로드 실패. 네트워크를 확인하세요.');
+    document.head.appendChild(s);
+  }
+}
+
+function _buildPPT(d) {
+  const pres = new PptxGenJS();
+  pres.layout = 'LAYOUT_16x9';
+  pres.author = 'GFS 안성센터';
+  pres.title = `재고현황 보고서 ${d.dateStr}`;
+
+  const C = {
+    navy:   '1F4E79',
+    blue:   '2563EB',
+    danger: 'DC2626',
+    warn:   'D97706',
+    ok:     '16A34A',
+    purple: '7C3AED',
+    gray:   '595959',
+    lgray:  'F2F2F2',
+    white:  'FFFFFF',
+    text:   '111111',
+  };
+
+  // 공통 슬라이드 레이아웃 함수
+  const addSlideBase = (titleText, titleBg = C.navy) => {
+    const slide = pres.addSlide();
+    // 상단 타이틀 바
+    slide.addShape(pres.ShapeType.rect, { x:0, y:0, w:'100%', h:0.75, fill:{color:titleBg} });
+    slide.addText(titleText, {
+      x:0.3, y:0, w:8, h:0.75,
+      fontSize:18, bold:true, color:C.white, valign:'middle', fontFace:'맑은 고딕'
+    });
+    // 우측 날짜
+    slide.addText(`기준일: ${d.dateStr}`, {
+      x:7.5, y:0, w:2.3, h:0.75,
+      fontSize:9, color:'BDD7EE', align:'right', valign:'middle', fontFace:'맑은 고딕'
+    });
+    // 하단 풋터
+    slide.addShape(pres.ShapeType.rect, { x:0, y:5.35, w:'100%', h:0.275, fill:{color:C.lgray} });
+    slide.addText('GFS 안성센터 · 삼진식품(주)', {
+      x:0.3, y:5.35, w:9.4, h:0.275,
+      fontSize:8, color:C.gray, valign:'middle', fontFace:'맑은 고딕'
+    });
+    return slide;
+  };
+
+  // ── 슬라이드 1: 전체 요약 ──────────────────────────
+  const s1 = addSlideBase('📊 전체 재고 현황 요약');
+  const cards = [
+    { label:'전체 SKU',     val:d.result.filter(r=>r.grade!=='➖ 미회전').length, color:C.blue,   sub:'관리 대상' },
+    { label:'🔴 위험 SKU',  val:d.danger.length,   color:C.danger, sub:'DoS 3일 미만' },
+    { label:'⚠️ 주의 SKU', val:d.warn.length,    color:C.warn,   sub:'DoS 3~7일' },
+    { label:'⭐ 주력 위험', val:d.coreDgr.length, color:C.purple, sub:'ADU 상위30%+위험' },
+    { label:'🔇 미회전',    val:d.zero.length,    color:C.gray,   sub:'14일 무출고' },
+  ];
+  cards.forEach((c, i) => {
+    const x = 0.3 + i * 1.88;
+    s1.addShape(pres.ShapeType.rect, { x, y:1.0, w:1.7, h:2.2,
+      fill:{color:C.white}, line:{color:'E2E6EA',width:1.5}, shadow:{type:'outer',blur:3,offset:1,color:'CCCCCC'} });
+    s1.addShape(pres.ShapeType.rect, { x, y:1.0, w:1.7, h:0.12, fill:{color:c.color} });
+    s1.addText(String(c.val), {
+      x, y:1.3, w:1.7, h:1.1,
+      fontSize:38, bold:true, color:c.color, align:'center', valign:'middle', fontFace:'맑은 고딕'
+    });
+    s1.addText(c.label, {
+      x, y:2.35, w:1.7, h:0.35,
+      fontSize:9, bold:true, color:C.text, align:'center', fontFace:'맑은 고딕'
+    });
+    s1.addText(c.sub, {
+      x, y:2.65, w:1.7, h:0.3,
+      fontSize:8, color:C.gray, align:'center', fontFace:'맑은 고딕'
+    });
+  });
+
+  // 총 출고량 요약
+  const totalAdu = d.aduTop.reduce((s,r)=>s+r.adu,0);
+  s1.addText(`14일 평균 총 출고량: ${totalAdu.toFixed(0)} BOX/일  ·  분석 SKU 수: ${d.aduTop.length}개`, {
+    x:0.3, y:3.4, w:9.4, h:0.4,
+    fontSize:10, color:C.gray, align:'center', fontFace:'맑은 고딕'
+  });
+
+  // ── 슬라이드 2: 주력 SKU TOP 10 ─────────────────────
+  const s2 = addSlideBase('⭐ 주력 SKU TOP 10  (ADU 기준)', C.navy);
+  const top10 = d.aduTop.slice(0, 10);
+  const maxAdu = Math.max(...top10.map(r=>r.adu), 1);
+  const maxDos = 14;
+  // 헤더
+  const tblH = [
+    [{text:'순위',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
+     {text:'품명',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
+     {text:'ADU',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
+     {text:'총재고',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
+     {text:'DoS',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
+     {text:'중요도',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
+     {text:'상태',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}}],
+    ...top10.map((r, i) => {
+      const isDgr = r.grade.includes('위험'), isWrn = r.grade==='⚠️ 주의';
+      const rowFill = isDgr?{color:'FFCCCC'}:isWrn?{color:'FFF2CC'}:i%2===0?{color:'F8FBFF'}:{color:'FFFFFF'};
+      const fc = isDgr?C.danger:isWrn?C.warn:C.text;
+      return [
+        {text:String(i+1),  options:{fill:rowFill,color:C.gray,align:'center'}},
+        {text:r.name,        options:{fill:rowFill,color:C.text,align:'left'}},
+        {text:r.adu.toFixed(1), options:{fill:rowFill,color:fc,align:'center',bold:true}},
+        {text:r.total.toLocaleString(), options:{fill:rowFill,color:C.text,align:'center'}},
+        {text:r.dos<999?r.dos.toFixed(1)+'일':'-', options:{fill:rowFill,color:fc,align:'center',bold:isDgr||isWrn}},
+        {text:r.imp, options:{fill:rowFill,color:C.text,align:'center'}},
+        {text:r.grade, options:{fill:rowFill,color:fc,align:'center',bold:true}},
+      ];
+    })
+  ];
+  s2.addTable(tblH, {
+    x:0.3, y:0.9, w:9.4, h:4.3,
+    rowH:0.37,
+    fontFace:'맑은 고딕', fontSize:9,
+    border:{color:'E2E6EA'},
+    colW:[0.5,3.2,0.8,0.9,0.9,1.2,0.9]
+  });
+
+  // ── 슬라이드 3: 즉시 위험 SKU ──────────────────────
+  const s3 = addSlideBase('🚨 즉시 위험 SKU  (DoS 3일 미만)', C.danger);
+  if (d.danger.length === 0) {
+    s3.addText('✅ 현재 위험 SKU가 없습니다', {
+      x:1, y:2, w:8, h:2, fontSize:22, bold:true, color:C.ok, align:'center', fontFace:'맑은 고딕'
+    });
+  } else {
+    const dangerTop = d.danger.slice(0, 8);
+    const tbl3h = [
+      [{text:'품명',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}},
+       {text:'총재고',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}},
+       {text:'ADU',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}},
+       {text:'DoS',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}},
+       {text:'주력여부',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}},
+       {text:'상태',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}}],
+      ...dangerTop.map((r, i) => {
+        const isCore = r.impCode === '3';
+        const bg = isCore ? {color:'FFE0E0'} : i%2===0 ? {color:'FFF8F8'} : {color:'FFFFFF'};
+        return [
+          {text:r.name, options:{fill:bg,color:C.text,align:'left'}},
+          {text:r.total.toLocaleString(), options:{fill:bg,color:C.text,align:'center'}},
+          {text:r.adu.toFixed(1), options:{fill:bg,color:C.text,align:'center'}},
+          {text:r.dos<999?r.dos.toFixed(1)+'일':'-', options:{fill:bg,color:C.danger,align:'center',bold:true}},
+          {text:isCore?'⭐ 주력':'', options:{fill:bg,color:'1E40AF',align:'center',bold:isCore}},
+          {text:r.grade, options:{fill:bg,color:C.danger,align:'center',bold:true}},
+        ];
+      })
+    ];
+    s3.addTable(tbl3h, {
+      x:0.3, y:0.9, w:9.4,
+      rowH:0.4, fontFace:'맑은 고딕', fontSize:9,
+      border:{color:'E2E6EA'}, colW:[3.5,1.0,0.9,0.9,1.1,1.0]
+    });
+    // 긴급 메모
+    s3.addText(`📌 긴급 조치 필요: ${d.danger.length}개 SKU → 화주사 즉시 입고 요청`, {
+      x:0.3, y:5.0, w:9.4, h:0.3,
+      fontSize:9, bold:true, color:C.danger, fontFace:'맑은 고딕'
+    });
+  }
+
+  // ── 슬라이드 4: 물동량 분석 ────────────────────────
+  const s4 = addSlideBase('📈 물동량 분석  (상위 SKU 기여도)', C.navy);
+  const top8 = d.aduTop.slice(0, 8);
+  const totalAdu2 = d.aduTop.reduce((s,r)=>s+r.adu,0) || 1;
+  const top8Sum = top8.reduce((s,r)=>s+r.adu,0);
+  const top8Pct = Math.round(top8Sum/totalAdu2*100);
+
+  // 파레토 요약 텍스트
+  s4.addShape(pres.ShapeType.rect, { x:0.3, y:0.85, w:9.4, h:0.45,
+    fill:{color:'EFF6FF'}, line:{color:'BFDBFE',width:1} });
+  s4.addText(
+    `상위 ${top8.length}개 SKU가 전체 출고량의 ${top8Pct}% 차지  ·  전체 평균 ADU: ${(totalAdu2/d.aduTop.length).toFixed(1)} BOX/일`,
+    { x:0.3, y:0.85, w:9.4, h:0.45, fontSize:10, bold:true, color:'1E40AF', align:'center', valign:'middle', fontFace:'맑은 고딕' }
+  );
+
+  // 바 차트 (수평)
+  let cumPct = 0;
+  top8.forEach((r, i) => {
+    const pct = r.adu / totalAdu2;
+    cumPct += pct;
+    const barW = Math.max(pct * 7.5, 0.05);
+    const y = 1.45 + i * 0.45;
+    // 배경 바
+    s4.addShape(pres.ShapeType.rect, { x:2.5, y:y+0.05, w:7.0, h:0.3, fill:{color:'E5E7EB'} });
+    // 값 바
+    const barColor = r.impCode==='3'?'2563EB':'94A3B8';
+    s4.addShape(pres.ShapeType.rect, { x:2.5, y:y+0.05, w:barW, h:0.3, fill:{color:barColor} });
+    // 품명
+    s4.addText(`${i+1}. ${r.name.length>16?r.name.slice(0,16)+'…':r.name}`, {
+      x:0.3, y:y, w:2.1, h:0.4, fontSize:8.5, color:C.text, valign:'middle', fontFace:'맑은 고딕'
+    });
+    // ADU 값
+    s4.addText(`${r.adu.toFixed(1)} BOX/일 (${(pct*100).toFixed(1)}%)`, {
+      x:9.6, y:y, w:0.9, h:0.4, fontSize:8, color:barColor, bold:r.impCode==='3', valign:'middle', fontFace:'맑은 고딕'
+    });
+  });
+  s4.addText('■ 주력(ADU 상위30%)   ■ 일반/저회전', {
+    x:0.3, y:5.05, w:5, h:0.25, fontSize:8, color:C.gray, fontFace:'맑은 고딕'
+  });
+
+  // ── 슬라이드 5: 미회전 / 장기재고 ──────────────────
+  const s5 = addSlideBase('🔇 미회전 / 장기재고  (14일 무출고)', C.gray);
+  const zeroWithStock = d.zero.filter(r=>r.total>0).slice(0, 10);
+  if (!zeroWithStock.length) {
+    s5.addText('✅ 미회전 재고가 없습니다', {
+      x:1, y:2, w:8, h:2, fontSize:22, bold:true, color:C.ok, align:'center', fontFace:'맑은 고딕'
+    });
+  } else {
+    const tbl5h = [
+      [{text:'품명',options:{bold:true,color:C.white,fill:{color:'595959'},align:'center'}},
+       {text:'WMS재고',options:{bold:true,color:C.white,fill:{color:'595959'},align:'center'}},
+       {text:'비축재고',options:{bold:true,color:C.white,fill:{color:'595959'},align:'center'}},
+       {text:'총재고',options:{bold:true,color:C.white,fill:{color:'595959'},align:'center'}},
+       {text:'비고',options:{bold:true,color:C.white,fill:{color:'595959'},align:'center'}}],
+      ...zeroWithStock.map((r, i) => {
+        const bg = i%2===0?{color:'F5F5F5'}:{color:'FFFFFF'};
+        return [
+          {text:r.name, options:{fill:bg,color:C.text,align:'left'}},
+          {text:r.wms.toLocaleString(), options:{fill:bg,color:C.text,align:'center'}},
+          {text:r.bichuk.toLocaleString(), options:{fill:bg,color:C.text,align:'center'}},
+          {text:r.total.toLocaleString(), options:{fill:bg,color:C.text,align:'center',bold:true}},
+          {text:'14일간 출고 이력 없음', options:{fill:bg,color:C.gray,align:'center'}},
+        ];
+      })
+    ];
+    s5.addTable(tbl5h, {
+      x:0.3, y:0.9, w:9.4,
+      rowH:0.38, fontFace:'맑은 고딕', fontSize:9,
+      border:{color:'E2E6EA'}, colW:[3.8,1.1,1.1,1.0,2.4]
+    });
+    s5.addText(`📌 총 ${d.zero.filter(r=>r.total>0).length}개 미회전 SKU · 화주사 이관/처분 협의 권장`, {
+      x:0.3, y:5.0, w:9.4, h:0.3,
+      fontSize:9, bold:true, color:C.gray, fontFace:'맑은 고딕'
+    });
+  }
+
+  // 파일 다운로드
+  const mm = pad(today.getMonth()+1), dd2 = pad(today.getDate());
+  pres.writeFile({ fileName:`GFS_재고보고서_${today.getFullYear()}${mm}${dd2}.pptx` });
+}
+
+// ── 전체 보고서 한 번에 ────────────────────────────────
+async function generateAll() {
+  const d = prepareReportData();
+  if (!d) return;
+  const btn = event.target.closest('button');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ 생성 중...'; btn.disabled = true;
+  try {
+    generateExcel();
+    await new Promise(r => setTimeout(r, 800));
+    generatePPT();
+    await new Promise(r => setTimeout(r, 500));
+    btn.textContent = '✅ 생성 완료!';
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+  } catch(e) {
+    btn.textContent = orig; btn.disabled = false;
+    alert('생성 중 오류: ' + e.message);
+  }
+}
+
+</script>
+</body>
+</html>
