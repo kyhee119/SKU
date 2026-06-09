@@ -288,7 +288,7 @@ tr:hover td{background:#fafbff}
 
     <!-- 요약 카드 -->
     <div class="cards">
-      <div class="card c-accent"><div class="card-lbl">전체 SKU</div><div class="card-val" id="hc-total">-</div><div class="card-sub">관리 대상</div></div>
+      <div class="card c-accent"><div class="card-lbl">전체 SKU</div><div class="card-val" id="hc-total">-</div><div class="card-sub">미회전 포함 전체</div></div>
       <div class="card c-danger"><div class="card-lbl">🔴 위험</div><div class="card-val" id="hc-danger">-</div><div class="card-sub">DoS 3일 미만</div></div>
       <div class="card c-warn"><div class="card-lbl">⚠️ 주의</div><div class="card-val" id="hc-warn">-</div><div class="card-sub">DoS 3~7일</div></div>
       <div class="card c-purple"><div class="card-lbl">⭐ 주력 위험</div><div class="card-val" id="hc-core">-</div><div class="card-sub">주력 SKU 중 위험/주의</div></div>
@@ -367,7 +367,7 @@ tr:hover td{background:#fafbff}
 
     <!-- 요약 카드 -->
     <div class="cards">
-      <div class="card c-accent"><div class="card-lbl">전체 SKU</div><div class="card-val" id="rc-total">-</div></div>
+      <div class="card c-accent"><div class="card-lbl">전체 SKU</div><div class="card-val" id="rc-total">-</div><div class="card-sub">미회전 포함 전체</div></div>
       <div class="card c-danger"><div class="card-lbl">🔴 위험</div><div class="card-val" id="rc-danger">-</div><div class="card-sub">DoS 3일 미만</div></div>
       <div class="card c-warn"><div class="card-lbl">⚠️ 주의</div><div class="card-val" id="rc-warn">-</div><div class="card-sub">DoS 3~7일</div></div>
       <div class="card c-ok"><div class="card-lbl">✅ 정상</div><div class="card-val" id="rc-ok">-</div><div class="card-sub">DoS 7일 이상</div></div>
@@ -1016,7 +1016,7 @@ function analyze(){
 function renderHome(result,danger,warn){
   const normal=result.filter(r=>r.grade==='✅ 정상');
   const coreDgr=result.filter(r=>r.impCode==='3'&&(r.grade.includes('위험')||r.grade==='⚠️ 주의'));
-  document.getElementById('hc-total').textContent=result.filter(r=>r.grade!=='➖ 미회전').length;
+  document.getElementById('hc-total').textContent=result.length;
   document.getElementById('hc-danger').textContent=danger.length;
   document.getElementById('hc-warn').textContent=warn.length;
   document.getElementById('hc-core').textContent=coreDgr.length;
@@ -1101,7 +1101,7 @@ function homeSort(v){_homeSortBy=v;renderHomeTable(_cacheHome)}
 // ── 위험재고 렌더링 ────────────────────────────────────────────
 function renderRisk(result,danger,warn){
   const normal=result.filter(r=>r.grade==='✅ 정상');
-  document.getElementById('rc-total').textContent=result.filter(r=>r.grade!=='➖ 미회전').length;
+  document.getElementById('rc-total').textContent=result.length;
   document.getElementById('rc-danger').textContent=danger.length;
   document.getElementById('rc-warn').textContent=warn.length;
   document.getElementById('rc-ok').textContent=normal.length;
