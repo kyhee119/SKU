@@ -311,6 +311,7 @@ tr:hover td{background:#fafbff}
           <button class="fbtn" onclick="homeFilter('state','danger',this)">🔴</button>
           <button class="fbtn" onclick="homeFilter('state','warn',this)">⚠️</button>
           <button class="fbtn" onclick="homeFilter('state','ok',this)">✅</button>
+          <button class="fbtn" onclick="homeFilter('state','zero',this)">➖ 미회전</button>
         </div>
         <select class="sort-sel" onchange="homeSort(this.value)">
           <option value="adu">ADU 내림차순</option>
@@ -1020,7 +1021,7 @@ function renderHome(result,danger,warn){
   document.getElementById('hc-warn').textContent=warn.length;
   document.getElementById('hc-core').textContent=coreDgr.length;
 
-  _cacheHome=result.filter(r=>r.adu>0).sort((a,b)=>b.adu-a.adu);
+  _cacheHome=[...result].sort((a,b)=>b.adu-a.adu);  // 미회전 포함 전체 품목
   renderHomeTable(_cacheHome);
 
   // 즉시 조치
@@ -1055,6 +1056,7 @@ function renderHomeTable(rows){
   if(_homeStateF==='danger') filtered=filtered.filter(r=>r.grade.includes('위험'));
   else if(_homeStateF==='warn') filtered=filtered.filter(r=>r.grade==='⚠️ 주의');
   else if(_homeStateF==='ok') filtered=filtered.filter(r=>r.grade==='✅ 정상');
+  else if(_homeStateF==='zero') filtered=filtered.filter(r=>r.grade==='➖ 미회전');
   if(_homeSortBy==='dos') filtered.sort((a,b)=>a.dos-b.dos);
   else if(_homeSortBy==='score') filtered.sort((a,b)=>a.score-b.score);
   else filtered.sort((a,b)=>b.adu-a.adu);
@@ -1070,7 +1072,8 @@ function renderHomeTable(rows){
     const dc=d<3?'var(--danger)':d<7?'var(--warn)':'var(--ok)';
     const bar=d?`<div class="dos-wrap"><div class="dos-bg"><div class="dos-fill" style="width:${pct}%;background:${dc}"></div></div><span class="dos-val" style="color:${dc}">${d.toFixed(1)}일</span></div>`:`<span style="color:var(--text3)">-</span>`;
     const aduFill=Math.round(r.adu/maxAdu*100);
-    const state=isDgr?`<span class="badge bd">${r.grade}</span>`:isWrn?`<span class="badge bw">⚠️ 주의</span>`:`<span class="badge bo">✅ 정상</span>`;
+    const isZero=r.grade==='➖ 미회전';
+    const state=isDgr?`<span class="badge bd">${r.grade}</span>`:isWrn?`<span class="badge bw">⚠️ 주의</span>`:isZero?`<span class="badge bm">➖ 미회전</span>`:`<span class="badge bo">✅ 정상</span>`;
     return`<tr class="${bg}">
       <td style="text-align:center;color:var(--text3);font-weight:600">${i+1}</td>
       <td class="l">${r.name}</td>
