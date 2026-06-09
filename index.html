@@ -745,12 +745,23 @@ function parseBichuk(wb){
   const hdrs=raw[0].map(h=>String(h));
   const rows=raw.slice(1).filter(r=>r[0]&&String(r[0]).trim()!=='').map(r=>{
     const o={};hdrs.forEach((h,i)=>o[h]=r[i]);return o;
-  }).filter(r=>!String(Object.values(r)[1]||'').includes('합'));
+  }).filter(r=>String(Object.values(r)[0]||'').trim()!=='');  // 합계행 제거: 코드(첫컬럼)가 비어있는 행 제외
+  // 코드 컬럼: '상대코드' 우선, 없으면 첫 번째 컬럼
+  const firstRow=rows[0]||{};
+  const ck=Object.keys(firstRow).find(k=>k.includes('상대')&&k.includes('코드'))||Object.keys(firstRow)[0];
   S.bichuk=rows.map(r=>{
     const nk=Object.keys(r).find(k=>k.includes('탁')&&k.includes('품')&&k.includes('명'))||Object.keys(r)[1];
-    return {_name:String(r[nk]||'').trim(),_qty:parseFloat(r['재고수량'])||0,_exp:String(r['소비일자']||'')};
+    return {
+      _code: String(r[ck]||'').trim(),
+      _name: String(r[nk]||'').trim(),
+      _qty:  parseFloat(r['재고수량'])||0,
+      _exp:  String(r['소비일자']||''),
+    };
   }).filter(r=>r._name);
-  setStatus('bichuk',`✅ ${S.bichuk.length}행 로드 완료`,'ok');
+  // 코드->품명 역매핑 저장 (WMS 코드로 매칭 시 사용)
+  S._bichukCodeMap={};
+  S.bichuk.forEach(r=>{ if(r._code) S._bichukCodeMap[r._code]=r._name; });
+  setStatus('bichuk',`\u2705 ${S.bichuk.length}\ud589 \ub85c\ub4dc \uc644\ub8cc (${Object.keys(S._bichukCodeMap).length}\uac1c \ucf54\ub4dc \uc778\uc2dd)`,'ok');
 }
 
 function parseOrder(wb){
@@ -840,6 +851,10 @@ function analyze(){
   const EXP_D   =parseInt(document.getElementById('set-exp').value)||30;
 
   // 1. 현재고 합산 (WMS + 비축)
+  // 코드 기준 매핑 테이블: 상품3PL코드 → WMS 품명 (1회 생성, 전체 재사용)
+  const codeToWmsName={};
+  S.stock.forEach(r=>{ if(r._code&&r._name) codeToWmsName[r._code]=r._name; });
+
   const stockMap={};
   S.stock.forEach(r=>{
     const n=r._name,c=r._code,q=r._qty,e=r._exp;
@@ -850,9 +865,12 @@ function analyze(){
   });
   if(S.bichuk){
     S.bichuk.forEach(r=>{
-      const n=r._name,q=r._qty;
+      const q=r._qty; if(!q)return;
+      // 비축 상대코드 → WMS 상품3PL코드 기준으로 품명 조회
+      // 코드 매칭 실패 시 품명 직접 사용(fallback)
+      const n=codeToWmsName[r._code]||r._name;
       if(!n)return;
-      if(!stockMap[n])stockMap[n]={wms:0,bichuk:0,code:'',exps:[]};
+      if(!stockMap[n])stockMap[n]={wms:0,bichuk:0,code:r._code||'',exps:[]};
       stockMap[n].bichuk+=q;
     });
   }
@@ -949,12 +967,15 @@ function analyze(){
   });
   if(S.bichuk){
     S.bichuk.forEach(r=>{
-      if(!r._name||!r._exp)return;
+      if(!r._exp)return;
       let exp=String(r._exp).replace(/[^0-9]/g,'');
       if(exp.length!==8)return;
       exp=`${exp.slice(0,4)}-${exp.slice(4,6)}-${exp.slice(6,8)}`;
-      const key=`${r._name}__${exp}__B`;
-      if(!batchMap[key])batchMap[key]={name:r._name,exp,qty:0,isBichuk:true};
+      // 위에서 만든 codeToWmsName 재사용 (코드 기준 WMS 품명 정규화)
+      const n=codeToWmsName[r._code]||r._name;
+      if(!n)return;
+      const key=`${n}__${exp}__B`;
+      if(!batchMap[key])batchMap[key]={name:n,exp,qty:0,isBichuk:true};
       batchMap[key].qty+=r._qty;
     });
   }
@@ -1471,239 +1492,609 @@ function generatePPT() {
   }
 }
 
+// ── PPT 고도화: 공통 유틸 ──────────────────────────────
+function _pptTruncName(name, maxLen) {
+  return name && name.length > maxLen ? name.slice(0, maxLen) + '…' : (name || '');
+}
+function _pptGradeColor(grade, C) {
+  if (grade && grade.includes('위험')) return C.danger;
+  if (grade === '⚠️ 주의') return C.warn;
+  if (grade === '✅ 정상') return C.ok;
+  return C.gray;
+}
+
 function _buildPPT(d) {
+  // ════════════════════════════════════════════════════════
+  // 레이아웃 상수 — PptxGenJS LAYOUT_16x9 = 10 × 7.5 인치
+  // 모든 수치는 인치 단위, colW 합계는 반드시 TBL_W 와 일치
+  // ════════════════════════════════════════════════════════
+  const L = {
+    // 슬라이드 크기
+    W:        10.00,   // 전체 너비
+    H:         7.50,   // 전체 높이
+    // 헤더 / 서브 / 푸터
+    HDR_H:     0.88,   // 상단 타이틀 바
+    SUB_H:     0.38,   // 서브타이틀 띠 (있을 때)
+    FTR_H:     0.38,   // 푸터 높이
+    // 좌우 패딩
+    PAD_X:     0.28,
+    // 파생 상수 (수식으로 계산 — 하드코딩 없음)
+    get TBL_W()      { return this.W - this.PAD_X * 2; },          // 9.44
+    get FTR_Y()      { return this.H - this.FTR_H; },              // 7.12
+    get BODY_Y_SUB() { return this.HDR_H + this.SUB_H; },          // 서브 있을 때 콘텐츠 시작 1.26
+    get BODY_Y()     { return this.HDR_H; },                        // 서브 없을 때 콘텐츠 시작 0.88
+    get BODY_END()   { return this.FTR_Y - 0.08; },                 // 7.04
+    // 표 행 높이 — 14pt 텍스트 + 여백: 0.42인치 = 30pt
+    ROW_H:     0.42,
+    HDR_ROW_H: 0.46,
+    // 최대 데이터 행: (BODY_END - BODY_Y_SUB - BNR_H - HDR_ROW_H) / ROW_H
+    // = (7.04 - 1.26 - 0.50 - 0.46) / 0.42 = 4.82 / 0.42 ≈ 11.5 → 안전하게 9
+    MAX_ROWS:  9,
+    BNR_H:     0.50,   // 배너 높이
+    BNR_GAP:   0.08,   // 배너 아래 여백
+  };
+  // ── 폰트 크기 — 최소 14pt 강제 ────────────────────────
+  const FS = {
+    title:   22,
+    sub:     14,
+    banner:  14,
+    tblHdr:  14,
+    tblData: 14,
+    note:    14,
+    kpiVal:  44,
+    kpiLbl:  15,
+    kpiSub:  14,
+  };
+
   const pres = new PptxGenJS();
   pres.layout = 'LAYOUT_16x9';
   pres.author = 'GFS 안성센터';
-  pres.title = `재고현황 보고서 ${d.dateStr}`;
+  pres.title  = `GFS 운영 분석 보고서 ${d.dateStr}`;
 
+  // ── 컬러 팔레트 ────────────────────────────────────────
   const C = {
-    navy:   '1F4E79',
-    blue:   '2563EB',
-    danger: 'DC2626',
-    warn:   'D97706',
-    ok:     '16A34A',
-    purple: '7C3AED',
-    gray:   '595959',
-    lgray:  'F2F2F2',
-    white:  'FFFFFF',
-    text:   '111111',
+    navy:     '0F2D52', navyL:  '1F4E79', blueL: '2E75B6',
+    danger:   'C0392B', dangerBg:'FFF0EF', dangerMid:'FFCCCC',
+    warn:     'B7770D', warnBg: 'FFFBF0', warnMid:'FFF2CC',
+    ok:       '1A7A4A', okBg:   'F0FFF6',
+    purple:   '5B2C8D', purpleL:'7C3AED',
+    gray:     '4A5568', grayL:  '718096',
+    lgray:    'F7F8FA', lgray2: 'EDF2F7', border:'D1D5DB',
+    white:    'FFFFFF', text:   '1A202C', textL: '4A5568',
+    accent:   '0F52BA', stripe: 'F8FBFF',
+    bannerBg: 'EFF6FF', bannerBd:'BFDBFE', bannerTx:'1E40AF',
+  };
+  const FONT = '맑은 고딕';
+
+  // ── 공통: 슬라이드 기본 프레임 ─────────────────────────
+  // 반환: { sl, bodyY }  bodyY = 콘텐츠 시작 Y (서브 있으면 HDR+SUB, 없으면 HDR)
+  const slideNum = { n:0 };
+  const addSlide = (title, accentColor, subtitle) => {
+    slideNum.n++;
+    const sl = pres.addSlide();
+    // 헤더 바
+    sl.addShape(pres.ShapeType.rect, {x:0, y:0, w:L.W, h:L.HDR_H, fill:{color:accentColor}});
+    sl.addShape(pres.ShapeType.rect, {x:0, y:0, w:0.07, h:L.HDR_H, fill:{color:C.white}, transparency:55});
+    sl.addText(title, {
+      x:0.22, y:0, w:7.8, h:L.HDR_H,
+      fontSize:FS.title, bold:true, color:C.white, valign:'middle', fontFace:FONT,
+      shadow:{type:'outer', blur:2, offset:1, color:'000000', transparency:70}
+    });
+    sl.addText(`${slideNum.n}  /  6`, {
+      x:8.3, y:0, w:1.5, h:L.HDR_H,
+      fontSize:14, color:'C8D8EE', align:'right', valign:'middle', fontFace:FONT
+    });
+    // 서브타이틀 띠
+    let bodyY = L.HDR_H;
+    if (subtitle) {
+      sl.addShape(pres.ShapeType.rect, {x:0, y:L.HDR_H, w:L.W, h:L.SUB_H, fill:{color:C.lgray2}});
+      sl.addText(subtitle, {
+        x:0.22, y:L.HDR_H, w:9.56, h:L.SUB_H,
+        fontSize:FS.sub, color:C.textL, valign:'middle', fontFace:FONT
+      });
+      bodyY = L.HDR_H + L.SUB_H;
+    }
+    // 푸터 바
+    sl.addShape(pres.ShapeType.rect, {x:0, y:L.FTR_Y, w:L.W, h:L.FTR_H, fill:{color:C.lgray2}});
+    sl.addText(`GFS 안성센터 · 삼진식품(주)  |  물동량 기반 운영 분석 보고서  |  기준일 ${d.dateStr}`, {
+      x:0.22, y:L.FTR_Y, w:8.0, h:L.FTR_H,
+      fontSize:14, color:C.grayL, valign:'middle', fontFace:FONT
+    });
+    sl.addText(`${slideNum.n} / 6`, {
+      x:8.5, y:L.FTR_Y, w:1.22, h:L.FTR_H,
+      fontSize:14, color:C.grayL, align:'right', valign:'middle', fontFace:FONT
+    });
+    return { sl, bodyY };
   };
 
-  // 공통 슬라이드 레이아웃 함수
-  const addSlideBase = (titleText, titleBg = C.navy) => {
-    const slide = pres.addSlide();
-    // 상단 타이틀 바
-    slide.addShape(pres.ShapeType.rect, { x:0, y:0, w:'100%', h:0.75, fill:{color:titleBg} });
-    slide.addText(titleText, {
-      x:0.3, y:0, w:8, h:0.75,
-      fontSize:18, bold:true, color:C.white, valign:'middle', fontFace:'맑은 고딕'
+  // ── 공통: 배너 — bodyY 기준 상대 배치, 배너 끝 Y 반환 ───
+  const addBanner = (sl, bodyY, text, bgColor, txColor, bdColor) => {
+    const bx = L.PAD_X, bw = L.TBL_W;
+    sl.addShape(pres.ShapeType.rect, {
+      x:bx, y:bodyY, w:bw, h:L.BNR_H,
+      fill:{color:bgColor||C.bannerBg}, line:{color:bdColor||C.bannerBd, width:1.2}
     });
-    // 우측 날짜
-    slide.addText(`기준일: ${d.dateStr}`, {
-      x:7.5, y:0, w:2.3, h:0.75,
-      fontSize:9, color:'BDD7EE', align:'right', valign:'middle', fontFace:'맑은 고딕'
+    sl.addText(text, {
+      x:bx+0.12, y:bodyY, w:bw-0.24, h:L.BNR_H,
+      fontSize:FS.banner, bold:true, color:txColor||C.bannerTx,
+      align:'center', valign:'middle', fontFace:FONT
     });
-    // 하단 풋터
-    slide.addShape(pres.ShapeType.rect, { x:0, y:5.35, w:'100%', h:0.275, fill:{color:C.lgray} });
-    slide.addText('GFS 안성센터 · 삼진식품(주)', {
-      x:0.3, y:5.35, w:9.4, h:0.275,
-      fontSize:8, color:C.gray, valign:'middle', fontFace:'맑은 고딕'
-    });
-    return slide;
+    return bodyY + L.BNR_H + L.BNR_GAP;
   };
 
-  // ── 슬라이드 1: 전체 요약 ──────────────────────────
-  const s1 = addSlideBase('📊 전체 재고 현황 요약');
-  const cards = [
-    { label:'전체 SKU',     val:d.result.filter(r=>r.grade!=='➖ 미회전').length, color:C.blue,   sub:'관리 대상' },
-    { label:'🔴 위험 SKU',  val:d.danger.length,   color:C.danger, sub:'DoS 3일 미만' },
-    { label:'⚠️ 주의 SKU', val:d.warn.length,    color:C.warn,   sub:'DoS 3~7일' },
-    { label:'⭐ 주력 위험', val:d.coreDgr.length, color:C.purple, sub:'ADU 상위30%+위험' },
-    { label:'🔇 미회전',    val:d.zero.length,    color:C.gray,   sub:'14일 무출고' },
+  // ── 공통: KPI 카드 ──────────────────────────────────────
+  const drawKpiCard = (sl, x, y, w, h, val, label, sub, valColor, lineColor) => {
+    sl.addShape(pres.ShapeType.rect, {x, y, w, h,
+      fill:{color:C.white}, line:{color:lineColor||C.border, width:1.5},
+      shadow:{type:'outer', blur:3, offset:2, color:'CCCCCC'}});
+    sl.addShape(pres.ShapeType.rect, {x, y, w, h:0.13, fill:{color:lineColor||valColor}});
+    sl.addText(String(val), {
+      x, y:y+0.20, w, h:h*0.48,
+      fontSize:FS.kpiVal, bold:true, color:valColor,
+      align:'center', valign:'middle', fontFace:FONT
+    });
+    sl.addText(label, {
+      x:x+0.06, y:y+h*0.64, w:w-0.12, h:h*0.20,
+      fontSize:FS.kpiLbl, bold:true, color:C.text,
+      align:'center', fontFace:FONT
+    });
+    sl.addText(sub, {
+      x:x+0.06, y:y+h*0.83, w:w-0.12, h:h*0.17,
+      fontSize:FS.kpiSub, color:C.grayL,
+      align:'center', fontFace:FONT
+    });
+  };
+
+  // ── 공통: 섹션 헤더 (좌우 분할 슬라이드용) ─────────────
+  const drawSectionHdr = (sl, x, y, w, label, color) => {
+    sl.addShape(pres.ShapeType.rect, {x, y, w, h:L.HDR_ROW_H, fill:{color:color}});
+    sl.addText(label, {x:x+0.14, y, w:w-0.20, h:L.HDR_ROW_H,
+      fontSize:FS.tblHdr, bold:true, color:C.white, valign:'middle', fontFace:FONT});
+  };
+
+  // ── 공통: 빈 상태 메시지 ────────────────────────────────
+  const drawEmpty = (sl, msg, color) => {
+    sl.addShape(pres.ShapeType.rect, {x:1.5, y:2.8, w:7, h:1.8,
+      fill:{color:C.okBg}, line:{color:color||C.ok, width:2}});
+    sl.addText(msg, {x:1.5, y:2.8, w:7, h:1.8,
+      fontSize:18, bold:true, color:color||C.ok,
+      align:'center', valign:'middle', fontFace:FONT});
+  };
+
+  // ── 공통: 하단 노트 띠 (푸터 바로 위 고정) ─────────────
+  const addNote = (sl, text, bgColor, txColor, bdColor) => {
+    const ny = L.FTR_Y - L.BNR_H - 0.04;
+    sl.addShape(pres.ShapeType.rect, {x:L.PAD_X, y:ny, w:L.TBL_W, h:L.BNR_H,
+      fill:{color:bgColor||C.dangerBg}, line:{color:bdColor||'FECACA', width:1}});
+    sl.addText(text, {x:L.PAD_X+0.12, y:ny, w:L.TBL_W-0.24, h:L.BNR_H,
+      fontSize:FS.note, bold:true, color:txColor||C.danger,
+      valign:'middle', fontFace:FONT});
+  };
+
+  // ── 공통: 표 헬퍼 ──────────────────────────────────────
+  // colW 합계가 반드시 w와 일치해야 함 — 이 함수에서 마지막 열을 자동 보정
+  const addFixedTable = (sl, hdrRow, dataRows, opts) => {
+    const rows   = dataRows.slice(0, L.MAX_ROWS);
+    const tw     = opts.w || L.TBL_W;
+    const tx     = opts.x != null ? opts.x : L.PAD_X;
+    const ty     = opts.y != null ? opts.y : null;
+    if (!ty && ty !== 0) { console.warn('addFixedTable: opts.y 필요'); return; }
+    // colW 합계 보정 — 마지막 컬럼에 잔여폭 할당
+    const colW   = [...opts.colW];
+    const sumW   = Math.round(colW.reduce((s,v)=>s+v,0)*100)/100;
+    colW[colW.length-1] = Math.round((colW[colW.length-1] + (tw - sumW))*100)/100;
+    // 헤더 행 높이를 개별 셀 options에도 지정 (PptxGenJS 호환)
+    sl.addTable([hdrRow, ...rows], {
+      x:tx, y:ty, w:tw,
+      rowH:L.ROW_H,
+      fontFace:FONT, fontSize:FS.tblData,
+      border:{color:C.border, pt:0.5},
+      colW,
+    });
+    // 잘린 행 수 안내
+    if (dataRows.length > L.MAX_ROWS) {
+      const notY = ty + L.HDR_ROW_H + rows.length * L.ROW_H + 0.06;
+      if (notY + 0.30 < L.FTR_Y) {
+        sl.addText(`외 ${dataRows.length - L.MAX_ROWS}개 항목 — 대시보드에서 전체 확인`, {
+          x:tx, y:notY, w:tw, h:0.30,
+          fontSize:14, color:C.grayL, align:'right', fontFace:FONT
+        });
+      }
+    }
+  };
+
+  // ── 공통 표 셀 생성기 ──────────────────────────────────
+  const hdrCell = (text, fillColor, align) => ({
+    text,
+    options:{bold:true, color:C.white, fill:{color:fillColor},
+      align:align||'center', fontSize:FS.tblHdr, valign:'middle'}
+  });
+  const dataCell = (text, bg, color, align, bold) => ({
+    text: String(text),
+    options:{fill:{color:bg}, color:color||C.text,
+      align:align||'center', fontSize:FS.tblData, bold:!!bold, valign:'middle'}
+  });
+
+  // ══════════════════════════════════════════════════════════
+  // 슬라이드 1 — Executive Summary
+  // ══════════════════════════════════════════════════════════
+  const totalSku      = d.result.filter(r=>r.grade!=='➖ 미회전').length;
+  const totalAdu      = d.aduTop.reduce((s,r)=>s+r.adu, 0);
+  const topN          = Math.min(d.aduTop.length, 3);
+  const top3Share     = topN>0 ? Math.round(d.aduTop.slice(0,topN).reduce((s,r)=>s+r.adu,0)/(totalAdu||1)*100) : 0;
+  const zeroWithStock = d.zero.filter(r=>r.total>0);
+
+  const {sl:s1, bodyY:s1bY} = addSlide('운영 분석 보고서  Executive Summary', C.navy,
+    '최근 14일 물동량 기반 · 위험 SKU · 미회전 SKU 종합 요약');
+
+  // ── KPI 카드 5개
+  // 콘텐츠 가용 높이: FTR_Y - bodyY = 7.12 - 1.26 = 5.86
+  // 카드 배치: 상단 여백 0.14, 카드 높이 2.10, 배너 0.50, 특이사항 3×0.50, 하단 여백 확보
+  const KPI_GAP  = 0.10;                       // 카드 사이 간격
+  const KPI_W    = (L.TBL_W - KPI_GAP*4) / 5; // 카드 1개 너비 = (9.44 - 0.40) / 5 = 1.808
+  const KPI_H    = 2.08;
+  const KPI_Y    = s1bY + 0.14;
+  const kpiDefs  = [
+    {val:totalSku,             label:'전체 SKU',  sub:'관리 대상',        vc:C.accent,  lc:C.blueL},
+    {val:d.danger.length,      label:'위험 SKU',  sub:'DoS 3일 미만',     vc:C.danger,  lc:C.danger},
+    {val:d.warn.length,        label:'주의 SKU',  sub:'DoS 3~7일',        vc:C.warn,    lc:C.warn},
+    {val:d.coreDgr.length,     label:'주력 위험', sub:'ADU 상위+DoS<7일', vc:C.purple,  lc:C.purpleL},
+    {val:zeroWithStock.length, label:'미회전',    sub:'14일 무출고',       vc:C.grayL,   lc:C.gray},
   ];
-  cards.forEach((c, i) => {
-    const x = 0.3 + i * 1.88;
-    s1.addShape(pres.ShapeType.rect, { x, y:1.0, w:1.7, h:2.2,
-      fill:{color:C.white}, line:{color:'E2E6EA',width:1.5}, shadow:{type:'outer',blur:3,offset:1,color:'CCCCCC'} });
-    s1.addShape(pres.ShapeType.rect, { x, y:1.0, w:1.7, h:0.12, fill:{color:c.color} });
-    s1.addText(String(c.val), {
-      x, y:1.3, w:1.7, h:1.1,
-      fontSize:38, bold:true, color:c.color, align:'center', valign:'middle', fontFace:'맑은 고딕'
-    });
-    s1.addText(c.label, {
-      x, y:2.35, w:1.7, h:0.35,
-      fontSize:9, bold:true, color:C.text, align:'center', fontFace:'맑은 고딕'
-    });
-    s1.addText(c.sub, {
-      x, y:2.65, w:1.7, h:0.3,
-      fontSize:8, color:C.gray, align:'center', fontFace:'맑은 고딕'
-    });
+  kpiDefs.forEach((c,i) => drawKpiCard(s1, L.PAD_X + i*(KPI_W+KPI_GAP), KPI_Y, KPI_W, KPI_H,
+    c.val, c.label, c.sub, c.vc, c.lc));
+
+  // ── 핵심 지표 배너
+  const avgDos = d.aduTop.length
+    ? (d.aduTop.reduce((s,r)=>s+(r.dos<999?r.dos:0),0)/d.aduTop.length).toFixed(1) : '-';
+  let s1Y = addBanner(s1, KPI_Y+KPI_H+0.12,
+    `총 물동량 ${totalAdu.toFixed(0)} BOX/일  ·  관리 SKU ${d.aduTop.length}개  ·  상위 ${topN}개 → 전체의 ${top3Share}%  ·  평균 DoS ${avgDos}일`,
+    C.bannerBg, C.bannerTx, C.bannerBd);
+
+  // ── 특이사항 3줄 (배너 끝 Y부터 고정 배치)
+  const issues = [];
+  if (d.danger.length>0) {
+    const cDgr=d.danger.filter(r=>r.impCode==='3');
+    issues.push({txt:`위험 SKU ${d.danger.length}개 (DoS 3일 미만) — 즉시 입고 요청${cDgr.length?` · 주력 ${cDgr.length}개 포함`:''}`, bg:'FFF0EF',bc:'FECACA',tc:C.danger});
+  }
+  if (d.warn.length>0)
+    issues.push({txt:`주의 SKU ${d.warn.length}개 (DoS 3~7일) — 입고 일정 선제 확인 요망`, bg:'FFFBF0',bc:'FDE68A',tc:C.warn});
+  if (d.aduTop.length>=3)
+    issues.push({txt:`상위 ${topN}개 SKU (${d.aduTop.slice(0,topN).map(r=>_pptTruncName(r.name,10)).join(' / ')}) → 전체 출고의 ${top3Share}% 집중`, bg:C.bannerBg,bc:C.bannerBd,tc:C.bannerTx});
+  if (zeroWithStock.length>0)
+    issues.push({txt:`미회전 SKU ${zeroWithStock.length}개 · 현재고 ${zeroWithStock.reduce((s,r)=>s+r.total,0).toLocaleString()} BOX — 화주사 처분 협의 필요`, bg:C.lgray2,bc:C.border,tc:C.gray});
+  if (!issues.length)
+    issues.push({txt:'특이사항 없음 — 정상 운영 상태', bg:C.okBg,bc:'A7F3D0',tc:C.ok});
+
+  const ISH = 0.50, ISG = 0.06;
+  issues.slice(0,3).forEach((item,i) => {
+    const iy = s1Y + i*(ISH+ISG);
+    if (iy+ISH > L.FTR_Y) return; // 영역 초과 방지
+    s1.addShape(pres.ShapeType.rect, {x:L.PAD_X,y:iy,w:L.TBL_W,h:ISH,
+      fill:{color:item.bg}, line:{color:item.bc,width:1}});
+    s1.addText(item.txt, {x:L.PAD_X+0.14,y:iy,w:L.TBL_W-0.24,h:ISH,
+      fontSize:FS.note, color:item.tc, valign:'middle', fontFace:FONT});
   });
 
-  // 총 출고량 요약
-  const totalAdu = d.aduTop.reduce((s,r)=>s+r.adu,0);
-  s1.addText(`14일 평균 총 출고량: ${totalAdu.toFixed(0)} BOX/일  ·  분석 SKU 수: ${d.aduTop.length}개`, {
-    x:0.3, y:3.4, w:9.4, h:0.4,
-    fontSize:10, color:C.gray, align:'center', fontFace:'맑은 고딕'
-  });
+  // ══════════════════════════════════════════════════════════
+  // 슬라이드 2 — 최근 14일 물동량 기여도 TOP 10
+  // ══════════════════════════════════════════════════════════
+  const {sl:s2, bodyY:s2bY} = addSlide('최근 14일  물동량 기여도 TOP 10', C.navyL,
+    'SKU별 14일 출고량 · ADU · 기여도(%) · 누적 기여도(%) — 운영 집중도 파악');
 
-  // ── 슬라이드 2: 주력 SKU TOP 10 ─────────────────────
-  const s2 = addSlideBase('⭐ 주력 SKU TOP 10  (ADU 기준)', C.navy);
-  const top10 = d.aduTop.slice(0, 10);
-  const maxAdu = Math.max(...top10.map(r=>r.adu), 1);
-  const maxDos = 14;
-  // 헤더
-  const tblH = [
-    [{text:'순위',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
-     {text:'품명',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
-     {text:'ADU',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
-     {text:'총재고',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
-     {text:'DoS',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
-     {text:'중요도',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}},
-     {text:'상태',options:{bold:true,color:C.white,fill:{color:'2E75B6'},align:'center'}}],
-    ...top10.map((r, i) => {
-      const isDgr = r.grade.includes('위험'), isWrn = r.grade==='⚠️ 주의';
-      const rowFill = isDgr?{color:'FFCCCC'}:isWrn?{color:'FFF2CC'}:i%2===0?{color:'F8FBFF'}:{color:'FFFFFF'};
-      const fc = isDgr?C.danger:isWrn?C.warn:C.text;
+  const top10  = d.aduTop.slice(0, 10);
+  const tAdu   = totalAdu || 1;
+  const top10S = top10.reduce((s,r)=>s+r.adu, 0);
+  const s2TblY = addBanner(s2, s2bY,
+    `상위 10개 SKU → 전체 출고의 ${Math.round(top10S/tAdu*100)}%  ·  평균 ADU ${(tAdu/Math.max(d.aduTop.length,1)).toFixed(1)} BOX/일  ·  총 ${d.aduTop.length}개 SKU`,
+    C.bannerBg, C.bannerTx, C.bannerBd);
+
+  // colW 합계 = TBL_W(9.44) — 마지막 열이 자동 보정됨
+  const s2ColW = [0.44, 2.86, 1.04, 0.90, 0.80, 0.86, 1.06, 1.00]; // 합=8.96 → 마지막+0.48=1.48
+  const s2Hdr  = [
+    hdrCell('순위',             C.navyL),
+    hdrCell('품명',             C.navyL, 'left'),
+    hdrCell('14일 출고\n(BOX)', C.navyL),
+    hdrCell('ADU\n(BOX/일)',    C.navyL),
+    hdrCell('기여도\n(%)',       C.navyL),
+    hdrCell('누적\n(%)',         C.navyL),
+    hdrCell('중요도',            C.navyL),
+    hdrCell('상태',              C.navyL),
+  ];
+  let cum2=0;
+  const s2Data = top10.map((r,i) => {
+    const pct=Math.round(r.adu/tAdu*1000)/10; cum2+=pct;
+    const isDgr=r.grade.includes('위험'), isWrn=r.grade==='⚠️ 주의', isCore=r.impCode==='3';
+    const bg=isDgr?C.dangerMid:isWrn?C.warnMid:(i%2===0?C.stripe:C.white);
+    const fc=_pptGradeColor(r.grade,C);
+    const cumC=cum2<=50?C.ok:cum2<=80?C.warn:C.danger;
+    return [
+      dataCell(i+1,                              bg, i<3?C.accent:C.grayL, 'center', i<3),
+      dataCell(_pptTruncName(r.name,20),         bg, C.text,  'left',   isCore),
+      dataCell(Math.round(r.adu*14).toLocaleString(), bg, C.text),
+      dataCell(r.adu.toFixed(1),                 bg, isCore?C.accent:C.text, 'center', isCore),
+      dataCell(pct.toFixed(1)+'%',               bg, C.accent,'center', true),
+      dataCell(cum2.toFixed(1)+'%',              bg, cumC,    'center', cum2<=80),
+      dataCell(r.imp,                            bg, isCore?C.accent:C.textL),
+      dataCell(r.grade,                          bg, fc,      'center', isDgr||isWrn),
+    ];
+  });
+  addFixedTable(s2, s2Hdr, s2Data, {colW:s2ColW, y:s2TblY});
+
+  // ══════════════════════════════════════════════════════════
+  // 슬라이드 3 — 주력 SKU 현황
+  // ══════════════════════════════════════════════════════════
+  const {sl:s3, bodyY:s3bY} = addSlide('주력 SKU 현황  (ADU 상위 30%)', C.blueL,
+    'ADU 상위 SKU · 총재고 · ADU · DoS · 소비기한 · 상태 — 핵심 상품 집중 관리');
+
+  const coreSku = d.aduTop.filter(r=>r.impCode==='3').slice(0, L.MAX_ROWS);
+
+  if (!coreSku.length) {
+    drawEmpty(s3, '주력 SKU 데이터가 없습니다', C.grayL);
+  } else {
+    const cOk=coreSku.filter(r=>r.grade==='✅ 정상').length;
+    const cDgr=coreSku.filter(r=>r.grade.includes('위험')).length;
+    const cWrn=coreSku.filter(r=>r.grade==='⚠️ 주의').length;
+    const s3TblY = addBanner(s3, s3bY,
+      `주력 SKU ${coreSku.length}개  ·  위험 ${cDgr}개  ·  주의 ${cWrn}개  ·  정상 ${cOk}개`,
+      C.bannerBg, C.bannerTx, C.bannerBd);
+    // colW 합계 = TBL_W → 마지막 자동 보정
+    const s3ColW = [0.42, 2.90, 1.10, 1.00, 0.95, 1.30, 1.10]; // 합=8.77 → 마지막+0.67=1.77
+    const s3Hdr  = [
+      hdrCell('순위',        C.blueL),
+      hdrCell('품명',        C.blueL, 'left'),
+      hdrCell('총재고\n(BOX)', C.blueL),
+      hdrCell('ADU\n(BOX/일)',C.blueL),
+      hdrCell('DoS\n(일)',   C.blueL),
+      hdrCell('소비기한',    C.blueL),
+      hdrCell('상태',        C.blueL),
+    ];
+    const s3Data = coreSku.map((r,i) => {
+      const isDgr=r.grade.includes('위험'), isWrn=r.grade==='⚠️ 주의';
+      const fc=_pptGradeColor(r.grade,C);
+      const bg=isDgr?C.dangerMid:isWrn?C.warnMid:(i%2===0?C.stripe:C.white);
+      const dosC=r.dos<3?C.danger:r.dos<7?C.warn:C.ok;
+      let expDisp='-';
+      if (r.exps&&r.exps.length) {
+        const sx=r.exps.filter(e=>e.exp).sort((a,b)=>a.exp.localeCompare(b.exp));
+        if (sx.length) expDisp=sx[0].exp;
+      }
       return [
-        {text:String(i+1),  options:{fill:rowFill,color:C.gray,align:'center'}},
-        {text:r.name,        options:{fill:rowFill,color:C.text,align:'left'}},
-        {text:r.adu.toFixed(1), options:{fill:rowFill,color:fc,align:'center',bold:true}},
-        {text:r.total.toLocaleString(), options:{fill:rowFill,color:C.text,align:'center'}},
-        {text:r.dos<999?r.dos.toFixed(1)+'일':'-', options:{fill:rowFill,color:fc,align:'center',bold:isDgr||isWrn}},
-        {text:r.imp, options:{fill:rowFill,color:C.text,align:'center'}},
-        {text:r.grade, options:{fill:rowFill,color:fc,align:'center',bold:true}},
+        dataCell(i+1,                          bg, C.grayL),
+        dataCell(_pptTruncName(r.name,20),     bg, C.text,   'left',   true),
+        dataCell(r.total.toLocaleString(),     bg),
+        dataCell(r.adu.toFixed(1),             bg, C.accent, 'center', true),
+        dataCell(r.dos<999?r.dos.toFixed(1)+'일':'-', bg, dosC, 'center', isDgr||isWrn),
+        dataCell(expDisp,                      bg, C.textL),
+        dataCell(r.grade,                      bg, fc,       'center', isDgr||isWrn),
       ];
-    })
+    });
+    addFixedTable(s3, s3Hdr, s3Data, {colW:s3ColW, y:s3TblY});
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // 슬라이드 4 — 위험 SKU 현황
+  // ══════════════════════════════════════════════════════════
+  const allRisk = [...d.danger, ...d.warn].sort((a,b)=>(a.score||99)-(b.score||99));
+  const {sl:s4, bodyY:s4bY} = addSlide('위험 SKU 현황  (DoS 7일 미만)', C.danger,
+    `즉시 위험 ${d.danger.length}개 · 주의 ${d.warn.length}개 — 주력 우선 · 예상 부족량 표시`);
+
+  if (!allRisk.length) {
+    drawEmpty(s4, '✅  위험·주의 SKU 없음\n정상 운영 상태', C.ok);
+  } else {
+    const missCount=d.danger.filter(r=>r.miss>0).length;
+    const coreRisk=allRisk.filter(r=>r.impCode==='3').length;
+    const s4TblY = addBanner(s4, s4bY,
+      `위험+주의 ${allRisk.length}개  ·  즉시 입고 ${d.danger.length}개  ·  미출 발생 ${missCount}개  ·  주력 포함 ${coreRisk}개`,
+      'FFF0EF', C.danger, 'FECACA');
+    // colW 합계 = TBL_W → 마지막 자동 보정
+    const s4ColW = [2.60, 1.00, 0.86, 0.80, 0.80, 0.86, 1.06, 0.90]; // 합=8.88 → 마지막+0.56=1.46
+    const s4Hdr  = [
+      hdrCell('품명',          '9B1C1C', 'left'),
+      hdrCell('총재고\n(BOX)', '9B1C1C'),
+      hdrCell('ADU\n(BOX/일)','9B1C1C'),
+      hdrCell('DoS\n(일)',     '9B1C1C'),
+      hdrCell('주력여부',      '9B1C1C'),
+      hdrCell('미출\n(BOX)',   '9B1C1C'),
+      hdrCell('예상 부족량',   '9B1C1C'),
+      hdrCell('상태',          '9B1C1C'),
+    ];
+    const s4Data = allRisk.slice(0, L.MAX_ROWS).map((r,i) => {
+      const isDgr=r.grade.includes('위험'), isCore=r.impCode==='3';
+      const fc=_pptGradeColor(r.grade,C);
+      const bg=isDgr?(isCore?'FFE0E0':C.dangerMid):(isCore?C.warnMid:C.warnBg);
+      const dosC=r.dos<3?C.danger:r.dos<7?C.warn:C.ok;
+      const shortage=Math.max(0,Math.round(r.adu*3-r.total));
+      return [
+        dataCell(_pptTruncName(r.name,18),                     bg, C.text,   'left',   isCore),
+        dataCell(r.total.toLocaleString(),                     bg),
+        dataCell(r.adu.toFixed(1),                             bg),
+        dataCell((r.dos<999?r.dos.toFixed(1):'∞')+'일',       bg, dosC,     'center', true),
+        dataCell(isCore?'주력':'',                             bg, '1E40AF', 'center', isCore),
+        dataCell(r.miss>0?r.miss.toLocaleString():'-',         bg, r.miss>0?C.danger:C.grayL, 'center', r.miss>0),
+        dataCell(shortage>0?'-'+shortage.toLocaleString()+' BOX':'여유', bg, shortage>0?C.danger:C.ok, 'center', shortage>0),
+        dataCell(r.grade,                                      bg, fc,       'center', true),
+      ];
+    });
+    addFixedTable(s4, s4Hdr, s4Data, {colW:s4ColW, y:s4TblY});
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // 슬라이드 5 — 미회전 및 저효율 SKU
+  // ══════════════════════════════════════════════════════════
+  const zeroFull = d.zero.filter(r=>r.total>0);
+  const lowAdu   = d.aduTop.filter(r=>r.impCode==='1').sort((a,b)=>a.adu-b.adu).slice(0,7);
+  const {sl:s5, bodyY:s5bY} = addSlide('미회전 및 저효율 SKU', C.gray,
+    `ADU=0 미회전 ${zeroFull.length}개 · 저회전 ${lowAdu.length}개 — 화주사 협의 대상`);
+
+  if (!zeroFull.length && !lowAdu.length) {
+    drawEmpty(s5, '✅  미회전·저효율 SKU 없음', C.ok);
+  } else {
+    // ── 좌우 2분할 레이아웃
+    // 총 너비 TBL_W(9.44) = 좌(4.62) + 간격(0.20) + 우(4.62)
+    const HALF_W = 4.62, GAP = 0.20;
+    const LX = L.PAD_X;
+    const RX = L.PAD_X + HALF_W + GAP;
+    const HDR_Y  = s5bY + 0.06;
+    const STBL_Y = HDR_Y + L.HDR_ROW_H;
+    // 노트 위치: 푸터 바로 위
+    const NOTE_Y = L.FTR_Y - L.BNR_H - 0.04;
+    // 최대 행 수: (NOTE_Y - STBL_Y) / ROW_H
+    const Z_MAX  = Math.floor((NOTE_Y - STBL_Y) / L.ROW_H);
+
+    // 좌: 미회전 SKU — colW 합=HALF_W(4.62)
+    const zL_ColW = [2.28, 0.72, 0.72, 0.90]; // 합=4.62
+    drawSectionHdr(s5, LX, HDR_Y, HALF_W, `🔇 미회전 SKU  (${zeroFull.length}개)`, C.gray);
+    const zL_Hdr = [
+      hdrCell('품명',   '4A5568', 'left'),
+      hdrCell('WMS',    '4A5568'),
+      hdrCell('비축',   '4A5568'),
+      hdrCell('총재고', '4A5568'),
+    ];
+    const zL_Data = zeroFull.slice(0, Z_MAX).map((r,i) => {
+      const bg = i%2===0 ? 'F5F5F5' : C.white;
+      return [
+        dataCell(_pptTruncName(r.name,14), bg, C.text,  'left'),
+        dataCell(r.wms.toLocaleString(),   bg, C.textL),
+        dataCell(r.bichuk.toLocaleString(),bg, C.textL),
+        dataCell(r.total.toLocaleString(), bg, C.text,  'center', true),
+      ];
+    });
+    if (zL_Data.length) {
+      s5.addTable([zL_Hdr,...zL_Data], {
+        x:LX, y:STBL_Y, w:HALF_W,
+        rowH:L.ROW_H, fontFace:FONT, fontSize:FS.tblData,
+        border:{color:C.border, pt:0.5}, colW:zL_ColW
+      });
+    } else {
+      s5.addText('해당 없음', {x:LX, y:STBL_Y+0.4, w:HALF_W, h:0.5,
+        fontSize:FS.tblData, color:C.grayL, align:'center', fontFace:FONT});
+    }
+
+    // 우: 저회전 SKU — colW 합=HALF_W(4.62)
+    const zR_ColW = [2.28, 0.80, 0.80, 0.74]; // 합=4.62
+    drawSectionHdr(s5, RX, HDR_Y, HALF_W, `📉 저회전 SKU  (${lowAdu.length}개)`, '6B7280');
+    const zR_Hdr = [
+      hdrCell('품명',   '6B7280', 'left'),
+      hdrCell('ADU',    '6B7280'),
+      hdrCell('총재고', '6B7280'),
+      hdrCell('DoS',    '6B7280'),
+    ];
+    const zR_Data = lowAdu.slice(0, Z_MAX).map((r,i) => {
+      const bg = i%2===0 ? 'F5F5F5' : C.white;
+      return [
+        dataCell(_pptTruncName(r.name,14),         bg, C.text,  'left'),
+        dataCell(r.adu.toFixed(1),                 bg, C.grayL),
+        dataCell(r.total.toLocaleString(),         bg, C.text,  'center', true),
+        dataCell(r.dos<999?r.dos.toFixed(1)+'일':'-', bg, C.textL),
+      ];
+    });
+    if (zR_Data.length) {
+      s5.addTable([zR_Hdr,...zR_Data], {
+        x:RX, y:STBL_Y, w:HALF_W,
+        rowH:L.ROW_H, fontFace:FONT, fontSize:FS.tblData,
+        border:{color:C.border, pt:0.5}, colW:zR_ColW
+      });
+    } else {
+      s5.addText('해당 없음', {x:RX, y:STBL_Y+0.4, w:HALF_W, h:0.5,
+        fontSize:FS.tblData, color:C.grayL, align:'center', fontFace:FONT});
+    }
+
+    // 하단 노트 (푸터 바로 위 고정)
+    if (zeroFull.length>0)
+      addNote(s5,
+        `📌 미회전 ${zeroFull.length}개 · 현재고 합계 ${zeroFull.reduce((s,r)=>s+r.total,0).toLocaleString()} BOX — 화주사 이관·처분 협의 필요`,
+        'FFF0EF', C.danger, 'FECACA');
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // 슬라이드 6 — 운영 의견 및 Action Plan
+  // ══════════════════════════════════════════════════════════
+  const {sl:s6, bodyY:s6bY} = addSlide('운영 의견 및 Action Plan', C.navy,
+    '분석 결과 기반 자동 생성 — 화주사 협의 품목 · 즉시 조치 사항');
+
+  const actions = [];
+  const missSkus = d.danger.filter(r=>r.miss>0);
+  if (missSkus.length)
+    actions.push({p:'즉시', c:'미출 발생',
+      a:`${missSkus.map(r=>_pptTruncName(r.name,13)).slice(0,3).join(' / ')} — 미출 발생, 즉시 입고 요청`,
+      vc:C.danger, bg:C.dangerBg, bc:'FECACA'});
+  const dosOnlyDgr = d.danger.filter(r=>r.miss===0);
+  if (dosOnlyDgr.length) {
+    const cf = [...dosOnlyDgr.filter(r=>r.impCode==='3'), ...dosOnlyDgr.filter(r=>r.impCode!=='3')];
+    actions.push({p:'긴급', c:'DoS 3일 미만',
+      a:`${cf.map(r=>_pptTruncName(r.name,13)).slice(0,3).join(' / ')} — DoS ${cf[0]?.dos.toFixed(1)}일, 금일 입고 일정 확인`,
+      vc:C.danger, bg:C.dangerBg, bc:'FECACA'});
+  }
+  if (d.warn.length) {
+    const cw = [...d.warn.filter(r=>r.impCode==='3'), ...d.warn.filter(r=>r.impCode!=='3')];
+    actions.push({p:'금주', c:'DoS 3~7일',
+      a:`${cw.map(r=>_pptTruncName(r.name,13)).slice(0,3).join(' / ')} — 금주 내 입고 계획 수립 요청`,
+      vc:C.warn, bg:C.warnBg, bc:'FDE68A'});
+  }
+  if (d.coreDgr.length)
+    actions.push({p:'선제', c:'주력 SKU 위험',
+      a:`주력 SKU ${d.coreDgr.length}개 위험/주의 — 서비스 영향 최소화를 위한 선제 대응 필요`,
+      vc:C.purple, bg:'F5F3FF', bc:'DDD6FE'});
+  if (zeroFull.length)
+    actions.push({p:'협의', c:'미회전 재고',
+      a:`미회전 SKU ${zeroFull.length}개 (${zeroFull.reduce((s,r)=>s+r.total,0).toLocaleString()} BOX) — 이관·반품·처분 일정 협의`,
+      vc:C.gray, bg:C.lgray2, bc:C.border});
+  if (lowAdu.length)
+    actions.push({p:'검토', c:'저회전 SKU',
+      a:`저회전 SKU ${lowAdu.length}개 — 적정 재고 수준 재검토 및 발주 기준 조정 권장`,
+      vc:C.grayL, bg:C.lgray, bc:C.border});
+  if (!actions.length)
+    actions.push({p:'정상', c:'이상 없음',
+      a:'위험·주의·미회전 SKU 없음 — 정상 운영 상태',
+      vc:C.ok, bg:C.okBg, bc:'A7F3D0'});
+
+  // ── Action Plan 표
+  // 가용 높이에서 최대 행 수 계산
+  // 협의품목 박스(BNR_H) + 간격 + 노트 여백 확보
+  const AP_RESERVE = L.BNR_H + 0.20; // 하단 협의품목 박스 공간
+  const AP_MAX_H   = L.FTR_Y - s6bY - AP_RESERVE;
+  const AP_MAX     = Math.min(6, Math.floor((AP_MAX_H - L.HDR_ROW_H) / L.ROW_H));
+  // colW 합계 = TBL_W → 마지막 자동 보정
+  const ap_ColW = [0.90, 1.26, 7.28]; // 합=9.44 딱 맞음 (TBL_W=9.44)
+  const apHdr   = [
+    hdrCell('우선순위', C.navy),
+    hdrCell('구분',     C.navy),
+    hdrCell('Action 내용', C.navy, 'left'),
   ];
-  s2.addTable(tblH, {
-    x:0.3, y:0.9, w:9.4, h:4.3,
-    rowH:0.37,
-    fontFace:'맑은 고딕', fontSize:9,
-    border:{color:'E2E6EA'},
-    colW:[0.5,3.2,0.8,0.9,0.9,1.2,0.9]
+  const apData = actions.slice(0, AP_MAX).map(a => [
+    dataCell(a.p, a.bg, a.vc, 'center', true),
+    dataCell(a.c, a.bg, a.vc, 'center', true),
+    dataCell(a.a, a.bg, C.text, 'left'),
+  ]);
+  s6.addTable([apHdr, ...apData], {
+    x:L.PAD_X, y:s6bY,
+    w:L.TBL_W,
+    rowH:L.ROW_H, fontFace:FONT, fontSize:FS.tblData,
+    border:{color:C.border, pt:0.5}, colW:ap_ColW
   });
 
-  // ── 슬라이드 3: 즉시 위험 SKU ──────────────────────
-  const s3 = addSlideBase('🚨 즉시 위험 SKU  (DoS 3일 미만)', C.danger);
-  if (d.danger.length === 0) {
-    s3.addText('✅ 현재 위험 SKU가 없습니다', {
-      x:1, y:2, w:8, h:2, fontSize:22, bold:true, color:C.ok, align:'center', fontFace:'맑은 고딕'
-    });
-  } else {
-    const dangerTop = d.danger.slice(0, 8);
-    const tbl3h = [
-      [{text:'품명',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}},
-       {text:'총재고',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}},
-       {text:'ADU',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}},
-       {text:'DoS',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}},
-       {text:'주력여부',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}},
-       {text:'상태',options:{bold:true,color:C.white,fill:{color:'C00000'},align:'center'}}],
-      ...dangerTop.map((r, i) => {
-        const isCore = r.impCode === '3';
-        const bg = isCore ? {color:'FFE0E0'} : i%2===0 ? {color:'FFF8F8'} : {color:'FFFFFF'};
-        return [
-          {text:r.name, options:{fill:bg,color:C.text,align:'left'}},
-          {text:r.total.toLocaleString(), options:{fill:bg,color:C.text,align:'center'}},
-          {text:r.adu.toFixed(1), options:{fill:bg,color:C.text,align:'center'}},
-          {text:r.dos<999?r.dos.toFixed(1)+'일':'-', options:{fill:bg,color:C.danger,align:'center',bold:true}},
-          {text:isCore?'⭐ 주력':'', options:{fill:bg,color:'1E40AF',align:'center',bold:isCore}},
-          {text:r.grade, options:{fill:bg,color:C.danger,align:'center',bold:true}},
-        ];
-      })
-    ];
-    s3.addTable(tbl3h, {
-      x:0.3, y:0.9, w:9.4,
-      rowH:0.4, fontFace:'맑은 고딕', fontSize:9,
-      border:{color:'E2E6EA'}, colW:[3.5,1.0,0.9,0.9,1.1,1.0]
-    });
-    // 긴급 메모
-    s3.addText(`📌 긴급 조치 필요: ${d.danger.length}개 SKU → 화주사 즉시 입고 요청`, {
-      x:0.3, y:5.0, w:9.4, h:0.3,
-      fontSize:9, bold:true, color:C.danger, fontFace:'맑은 고딕'
-    });
+  // ── 화주사 협의 우선 품목 박스 (표 끝 아래 고정, 푸터 위)
+  const consultSkus = [
+    ...d.danger.filter(r=>r.impCode==='3').slice(0,3).map(r=>r.name),
+    ...d.warn.filter(r=>r.impCode==='3').slice(0,2).map(r=>r.name),
+    ...zeroFull.slice(0,2).map(r=>r.name),
+  ].filter((v,i,a)=>a.indexOf(v)===i).slice(0,6);
+
+  const apEndY = s6bY + L.HDR_ROW_H + Math.min(actions.length, AP_MAX) * L.ROW_H + 0.10;
+  const boxY   = Math.max(apEndY, L.FTR_Y - L.BNR_H - 0.08);
+  if (consultSkus.length && boxY + L.BNR_H <= L.FTR_Y) {
+    s6.addShape(pres.ShapeType.rect, {x:L.PAD_X, y:boxY, w:L.TBL_W, h:L.BNR_H,
+      fill:{color:C.bannerBg}, line:{color:C.bannerBd, width:1.2}});
+    s6.addText(
+      `화주사 협의 우선 품목:  ${consultSkus.map(n=>_pptTruncName(n,12)).join('  /  ')}`,
+      {x:L.PAD_X+0.12, y:boxY, w:L.TBL_W-0.24, h:L.BNR_H,
+        fontSize:FS.banner, bold:true, color:C.bannerTx, valign:'middle', fontFace:FONT});
   }
 
-  // ── 슬라이드 4: 물동량 분석 ────────────────────────
-  const s4 = addSlideBase('📈 물동량 분석  (상위 SKU 기여도)', C.navy);
-  const top8 = d.aduTop.slice(0, 8);
-  const totalAdu2 = d.aduTop.reduce((s,r)=>s+r.adu,0) || 1;
-  const top8Sum = top8.reduce((s,r)=>s+r.adu,0);
-  const top8Pct = Math.round(top8Sum/totalAdu2*100);
-
-  // 파레토 요약 텍스트
-  s4.addShape(pres.ShapeType.rect, { x:0.3, y:0.85, w:9.4, h:0.45,
-    fill:{color:'EFF6FF'}, line:{color:'BFDBFE',width:1} });
-  s4.addText(
-    `상위 ${top8.length}개 SKU가 전체 출고량의 ${top8Pct}% 차지  ·  전체 평균 ADU: ${(totalAdu2/d.aduTop.length).toFixed(1)} BOX/일`,
-    { x:0.3, y:0.85, w:9.4, h:0.45, fontSize:10, bold:true, color:'1E40AF', align:'center', valign:'middle', fontFace:'맑은 고딕' }
-  );
-
-  // 바 차트 (수평)
-  let cumPct = 0;
-  top8.forEach((r, i) => {
-    const pct = r.adu / totalAdu2;
-    cumPct += pct;
-    const barW = Math.max(pct * 7.5, 0.05);
-    const y = 1.45 + i * 0.45;
-    // 배경 바
-    s4.addShape(pres.ShapeType.rect, { x:2.5, y:y+0.05, w:7.0, h:0.3, fill:{color:'E5E7EB'} });
-    // 값 바
-    const barColor = r.impCode==='3'?'2563EB':'94A3B8';
-    s4.addShape(pres.ShapeType.rect, { x:2.5, y:y+0.05, w:barW, h:0.3, fill:{color:barColor} });
-    // 품명
-    s4.addText(`${i+1}. ${r.name.length>16?r.name.slice(0,16)+'…':r.name}`, {
-      x:0.3, y:y, w:2.1, h:0.4, fontSize:8.5, color:C.text, valign:'middle', fontFace:'맑은 고딕'
-    });
-    // ADU 값
-    s4.addText(`${r.adu.toFixed(1)} BOX/일 (${(pct*100).toFixed(1)}%)`, {
-      x:9.6, y:y, w:0.9, h:0.4, fontSize:8, color:barColor, bold:r.impCode==='3', valign:'middle', fontFace:'맑은 고딕'
-    });
-  });
-  s4.addText('■ 주력(ADU 상위30%)   ■ 일반/저회전', {
-    x:0.3, y:5.05, w:5, h:0.25, fontSize:8, color:C.gray, fontFace:'맑은 고딕'
-  });
-
-  // ── 슬라이드 5: 미회전 / 장기재고 ──────────────────
-  const s5 = addSlideBase('🔇 미회전 / 장기재고  (14일 무출고)', C.gray);
-  const zeroWithStock = d.zero.filter(r=>r.total>0).slice(0, 10);
-  if (!zeroWithStock.length) {
-    s5.addText('✅ 미회전 재고가 없습니다', {
-      x:1, y:2, w:8, h:2, fontSize:22, bold:true, color:C.ok, align:'center', fontFace:'맑은 고딕'
-    });
-  } else {
-    const tbl5h = [
-      [{text:'품명',options:{bold:true,color:C.white,fill:{color:'595959'},align:'center'}},
-       {text:'WMS재고',options:{bold:true,color:C.white,fill:{color:'595959'},align:'center'}},
-       {text:'비축재고',options:{bold:true,color:C.white,fill:{color:'595959'},align:'center'}},
-       {text:'총재고',options:{bold:true,color:C.white,fill:{color:'595959'},align:'center'}},
-       {text:'비고',options:{bold:true,color:C.white,fill:{color:'595959'},align:'center'}}],
-      ...zeroWithStock.map((r, i) => {
-        const bg = i%2===0?{color:'F5F5F5'}:{color:'FFFFFF'};
-        return [
-          {text:r.name, options:{fill:bg,color:C.text,align:'left'}},
-          {text:r.wms.toLocaleString(), options:{fill:bg,color:C.text,align:'center'}},
-          {text:r.bichuk.toLocaleString(), options:{fill:bg,color:C.text,align:'center'}},
-          {text:r.total.toLocaleString(), options:{fill:bg,color:C.text,align:'center',bold:true}},
-          {text:'14일간 출고 이력 없음', options:{fill:bg,color:C.gray,align:'center'}},
-        ];
-      })
-    ];
-    s5.addTable(tbl5h, {
-      x:0.3, y:0.9, w:9.4,
-      rowH:0.38, fontFace:'맑은 고딕', fontSize:9,
-      border:{color:'E2E6EA'}, colW:[3.8,1.1,1.1,1.0,2.4]
-    });
-    s5.addText(`📌 총 ${d.zero.filter(r=>r.total>0).length}개 미회전 SKU · 화주사 이관/처분 협의 권장`, {
-      x:0.3, y:5.0, w:9.4, h:0.3,
-      fontSize:9, bold:true, color:C.gray, fontFace:'맑은 고딕'
-    });
-  }
-
-  // 파일 다운로드
-  const mm = pad(today.getMonth()+1), dd2 = pad(today.getDate());
-  pres.writeFile({ fileName:`GFS_재고보고서_${today.getFullYear()}${mm}${dd2}.pptx` });
+  // ── 파일 다운로드 ──────────────────────────────────────
+  const mm=pad(today.getMonth()+1), dd2=pad(today.getDate());
+  pres.writeFile({fileName:`GFS_운영분석보고서_${today.getFullYear()}${mm}${dd2}.pptx`});
 }
 
 // ── 전체 보고서 한 번에 ────────────────────────────────
