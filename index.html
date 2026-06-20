@@ -234,20 +234,137 @@ tr:hover td{background:#fafbff}
   .msg-body { font-size: 11px; line-height: 1.7; }
 }
 
+
+/* ── 슬라이드 메뉴 오버레이 ─────────────────────────── */
+.sl-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;
+  opacity:0;pointer-events:none;transition:opacity .25s}
+.sl-overlay.on{opacity:1;pointer-events:auto}
+
+/* ── 슬라이드 메뉴 패널 ──────────────────────────────── */
+.sl-panel{position:fixed;top:0;left:0;width:260px;height:100%;
+  background:#fff;z-index:301;
+  transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;box-shadow:4px 0 20px rgba(0,0,0,.12)}
+.sl-panel.on{transform:translateX(0)}
+
+/* ── 슬라이드 메뉴 헤더 ──────────────────────────────── */
+.sl-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;height:54px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sl-hdr-title{font-size:13px;font-weight:700;color:var(--text)}
+.sl-close{width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;border-radius:6px;border:none;background:none;font-size:18px;color:var(--text3)}
+.sl-close:hover{background:var(--bg)}
+
+/* ── 화주사 목록 ─────────────────────────────────────── */
+.sl-section-lbl{font-size:10px;font-weight:600;color:var(--text3);
+  padding:14px 16px 4px;letter-spacing:.05em;text-transform:uppercase}
+.sl-body{flex:1;overflow-y:auto;padding-bottom:8px}
+.sl-item{display:flex;align-items:center;gap:10px;padding:9px 16px;
+  cursor:pointer;transition:.15s;border-radius:0;position:relative}
+.sl-item:hover{background:var(--bg)}
+.sl-item.on{background:#eff6ff}
+.sl-item.on .sl-item-name{color:var(--accent);font-weight:600}
+.sl-item-ico{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.sl-item-name{font-size:13px;color:var(--text2)}
+.sl-item-badge{margin-left:auto;font-size:10px;padding:1px 7px;border-radius:10px;
+  background:var(--danger);color:#fff;font-weight:600}
+.sl-item-badge.warn{background:var(--warn)}
+.sl-item-badge.ok{background:var(--ok)}
+
+/* ── 하단 메뉴 ───────────────────────────────────────── */
+.sl-footer{border-top:1px solid var(--border);padding:8px 0;flex-shrink:0}
+.sl-footer-item{display:flex;align-items:center;gap:10px;padding:10px 16px;
+  cursor:pointer;font-size:13px;color:var(--text2);transition:.15s}
+.sl-footer-item:hover{background:var(--bg);color:var(--text)}
+.sl-footer-item span{font-size:15px}
+
+/* ── 탑바 햄버거 버튼 ────────────────────────────────── */
+.menu-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;border-radius:7px;border:none;background:none;
+  font-size:18px;color:var(--text2);margin-right:4px}
+.menu-btn:hover{background:var(--bg)}
+
+/* ── 현재 화주사 표시 (탑바) ────────────────────────── */
+.current-client{font-size:11px;color:var(--text3);
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:5px;padding:3px 8px;margin-right:4px}
+
+
+/* ── 로트 상세 모달 ──────────────────────────────────── */
+.lot-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:400;
+  display:none;align-items:center;justify-content:center;padding:16px}
+.lot-overlay.on{display:flex}
+.lot-modal{width:100%;max-width:380px;max-height:80vh;background:#fff;
+  border-radius:12px;overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.lot-hdr{padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-shrink:0}
+.lot-hdr-name{font-weight:600;font-size:14px;margin-bottom:2px}
+.lot-hdr-sub{font-size:11px;color:var(--text3)}
+.lot-close{border:none;background:none;cursor:pointer;color:var(--text3);
+  font-size:18px;padding:0;line-height:1}
+.lot-stats{display:flex;gap:8px;padding:10px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+.lot-stat{flex:1;background:var(--bg);border-radius:7px;padding:8px 10px}
+.lot-stat-lbl{font-size:10px;color:var(--text3);margin-bottom:2px}
+.lot-stat-val{font-size:16px;font-weight:600}
+.lot-stat-val span{font-size:11px;font-weight:400;color:var(--text3)}
+.lot-sub-lbl{padding:8px 18px 4px;font-size:10px;color:var(--text3);font-weight:600;flex-shrink:0}
+.lot-list{overflow-y:auto;padding:0 18px 12px;flex:1}
+.lot-row{display:flex;align-items:center;justify-content:space-between;
+  padding:7px 10px;margin-bottom:4px;border-radius:7px}
+.lot-row.urgent{background:rgba(220,38,38,.08)}
+.lot-row-date{font-size:12px;font-weight:600}
+.lot-row.urgent .lot-row-date,.lot-row.urgent .lot-row-d{color:var(--danger)}
+.lot-row-d{font-size:10px;color:var(--text3)}
+.lot-row-qty{font-size:13px;font-weight:600}
+.lot-row.urgent .lot-row-qty{color:var(--danger)}
+.lot-empty{text-align:center;padding:30px 10px;color:var(--text3);font-size:12px}
+.name-click{cursor:pointer;color:var(--accent);text-decoration:underline;
+  text-decoration-style:dotted;text-underline-offset:2px}
+.name-click:hover{color:#1d4ed8}
+
 /* ── 스크롤바 ─────────────────────────────────────── */
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#f1f3f5;border-radius:6px}
+::-webkit-scrollbar-thumb{background:#c1c7cd;border-radius:6px;border:2px solid #f1f3f5}
+::-webkit-scrollbar-thumb:hover{background:#868e96}
+::-webkit-scrollbar-corner{background:#f1f3f5}
 </style>
 </head>
 <body>
 
+<!-- 슬라이드 메뉴 오버레이 -->
+<div class="sl-overlay" id="sl-overlay" onclick="closeSlide()"></div>
+
+<!-- 슬라이드 메뉴 패널 -->
+<div class="sl-panel" id="sl-panel">
+  <div class="sl-hdr">
+    <div class="sl-hdr-title">GFS 안성센터</div>
+    <button class="sl-close" onclick="closeSlide()">✕</button>
+  </div>
+  <div class="sl-body" id="sl-body">
+    <div class="sl-section-lbl">화주사</div>
+    <!-- 화주사 목록 동적 생성 -->
+  </div>
+  <div class="sl-footer">
+    <div class="sl-footer-item" onclick="closeSlide();switchTab('upload')">
+      <span>📂</span> 데이터 입력
+    </div>
+    <div class="sl-footer-item" onclick="closeSlide();switchTab('settings')">
+      <span>⚙</span> 설정
+    </div>
+  </div>
+</div>
+
 <!-- 탑바 -->
 <div class="topbar">
   <div class="brand">
+    <button class="menu-btn" onclick="openSlide()">☰</button>
     <div class="brand-logo">G</div>
     <div>
       <div class="brand-name">GFS 재고관리 대시보드</div>
-      <div class="brand-sub">안성센터 · 삼진식품(주)</div>
+      <div class="brand-sub">안성센터</div>
     </div>
   </div>
   <div class="topbar-right">
@@ -273,11 +390,9 @@ tr:hover td{background:#fafbff}
 
 <!-- 탭 -->
 <div class="tabs">
-  <div class="tab on"  onclick="switchTab('home')">🏠 홈</div>
-  <div class="tab" onclick="switchTab('risk')">🚨 위험재고</div>
-  <div class="tab" onclick="switchTab('dormant')">📦 부진재고</div>
-  <div class="tab" onclick="switchTab('upload')">📂 데이터 입력</div>
-  <div class="tab" onclick="switchTab('settings')">⚙ 설정</div>
+  <div class="tab on"  id="tab-home"    onclick="switchTab('home')">🏠 홈</div>
+  <div class="tab"     id="tab-risk"    onclick="switchTab('risk')">🚨 위험재고</div>
+  <div class="tab"     id="tab-dormant" onclick="switchTab('dormant')">📦 부진재고</div>
 </div>
 
 <!-- ═══ 홈 ═══ -->
@@ -292,6 +407,21 @@ tr:hover td{background:#fafbff}
       <div class="card c-danger"><div class="card-lbl">🔴 위험</div><div class="card-val" id="hc-danger">-</div><div class="card-sub">DoS 3일 미만</div></div>
       <div class="card c-warn"><div class="card-lbl">⚠️ 주의</div><div class="card-val" id="hc-warn">-</div><div class="card-sub">DoS 3~7일</div></div>
       <div class="card c-purple"><div class="card-lbl">⭐ 주력 위험</div><div class="card-val" id="hc-core">-</div><div class="card-sub">주력 SKU 중 위험/주의</div></div>
+    </div>
+
+    <!-- 품목 검색 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="position:relative;flex:1;max-width:320px">
+        <input type="text" id="home-search" placeholder="🔍 품명 검색..."
+          oninput="homeSearch(this.value)"
+          style="width:100%;padding:7px 32px 7px 12px;border:1px solid var(--border);
+            border-radius:7px;font-size:12px;font-family:var(--font);
+            background:#fff;color:var(--text);outline:none">
+        <button onclick="document.getElementById('home-search').value='';homeSearch('')"
+          style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
+            border:none;background:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0">✕</button>
+      </div>
+      <span id="home-search-count" style="font-size:11px;color:var(--text3)"></span>
     </div>
 
     <!-- ADU TOP 섹션 -->
@@ -456,14 +586,14 @@ tr:hover td{background:#fafbff}
     <div class="cards">
       <div class="card c-purple"><div class="card-lbl">🔒 FFFFF</div><div class="card-val" id="dc-fffff">-</div><div class="card-sub">출고불가 로케이션</div></div>
       <div class="card c-danger"><div class="card-lbl">🔴 소진불가</div><div class="card-val" id="dc-noout">-</div><div class="card-sub">기한 내 소진 불가</div></div>
-      <div class="card c-warn"><div class="card-lbl">⚠️ 유통기한 임박</div><div class="card-val" id="dc-exp">-</div><div class="card-sub">D-30 이내</div></div>
+      <div class="card c-warn"><div class="card-lbl">⚠️ 소비기한 임박</div><div class="card-val" id="dc-exp">-</div></div>
       <div class="card" style="border-left:4px solid var(--text3)"><div class="card-lbl">🔇 미회전</div><div class="card-val" id="dc-zero" style="color:var(--text3)">-</div><div class="card-sub">14일 출고 없음</div></div>
     </div>
 
     <!-- FFFFF -->
     <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--purple)"></div>🔒 FFFFF 재고 (출고불가 로케이션)</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th class="l">품명</th><th>유통기한</th><th>남은일수</th><th>수량</th><th>ADU</th><th>예상소진</th><th>잔여예상</th><th>판정</th></tr></thead>
+      <thead><tr><th class="l">품명</th><th>소비기한</th><th>남은일수</th><th>수량</th><th>ADU</th><th>예상소진</th><th>잔여예상</th><th>판정</th></tr></thead>
       <tbody id="dorm-fffff-body"></tbody>
     </table></div>
 
@@ -472,16 +602,16 @@ tr:hover td{background:#fafbff}
     <!-- 소진불가 -->
     <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--danger)"></div>🔴 소진불가 재고 (기한 내 출고 불가)</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th class="l">품명</th><th>유통기한</th><th>남은일수</th><th>현재고</th><th>ADU</th><th>예상소진</th><th>잔여예상</th><th>판정</th></tr></thead>
+      <thead><tr><th class="l">품명</th><th>소비기한</th><th>남은일수</th><th>현재고</th><th>ADU</th><th>예상소진</th><th>잔여예상</th><th>판정</th></tr></thead>
       <tbody id="dorm-noout-body"></tbody>
     </table></div>
 
     <div class="divider"></div>
 
-    <!-- 유통기한 임박 -->
-    <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--warn)"></div>⚠️ 유통기한 임박 (D-30 이내)</div>
+    <!-- 소비기한 임박 -->
+    <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--warn)"></div>⚠️ 소비기한 임박</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th class="l">품명</th><th>유통기한</th><th>남은일수</th><th>현재고</th><th>ADU</th><th>예상소진</th><th>잔여예상</th><th>판정</th></tr></thead>
+      <thead><tr><th class="l">품명</th><th>소비기한</th><th>남은일수</th><th>현재고</th><th>ADU</th><th>예상소진</th><th>잔여예상</th><th>판정</th></tr></thead>
       <tbody id="dorm-exp-body"></tbody>
     </table></div>
 
@@ -490,7 +620,7 @@ tr:hover td{background:#fafbff}
     <!-- 미회전 (ADU=0) — 저회전과 완전 분리 -->
     <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--text3)"></div>🔇 미회전 SKU (14일간 출고 이력 없음)</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th class="l">품명</th><th>WMS</th><th>비축</th><th>총재고</th><th>유통기한</th><th>비고</th></tr></thead>
+      <thead><tr><th class="l">품명</th><th>WMS</th><th>비축</th><th>총재고</th><th>소비기한</th><th>비고</th></tr></thead>
       <tbody id="dorm-zero-body"></tbody>
     </table></div>
 
@@ -503,8 +633,8 @@ tr:hover td{background:#fafbff}
 <div class="content">
   <div class="upload-grid">
     <div class="upload-card">
-      <div class="upload-title">📦 현재고 (WMS)</div>
-      <div class="upload-sub">매일 덮어씌우기 · FFFFF/SHPLOC 자동 처리</div>
+      <div class="upload-title">📦 현재고 (SDMS)</div>
+      <div class="upload-sub">매일 덮어씌우기 · 전체 화주사 자동 분리 · FFFFF/SHPLOC 자동 처리</div>
       <div class="upload-zone" id="uz-stock" ondragover="dov(event,'uz-stock')" ondragleave="dlv('uz-stock')" ondrop="dop(event,'stock')">
         <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'stock')">
         <div class="upload-icon">📄</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
@@ -512,13 +642,27 @@ tr:hover td{background:#fafbff}
       <div class="upload-status" id="us-stock"></div>
     </div>
     <div class="upload-card">
-      <div class="upload-title">🏪 현재고 (비축)</div>
-      <div class="upload-sub">매일 덮어씌우기</div>
+      <div class="upload-title">🏪 현재고 (CSMS)</div>
+      <div class="upload-sub">매일 덮어씌우기 · 화주사 선택 후 업로드</div>
+      <div style="margin-bottom:8px">
+        <select id="csms-client-sel" class="sort-sel" style="width:100%;padding:6px 8px;font-size:12px;border-radius:6px;border:1px solid var(--border)">
+          <option value="">-- 화주사 선택 --</option>
+          <option value="삼진">삼진식품</option>
+          <option value="BRK">BRK</option>
+          <option value="BRK_D">BRK(던킨)</option>
+          <option value="파리">파리PC</option>
+          <option value="푸드랩">푸드랩스</option>
+          <option value="푸드웰">푸드웰</option>
+          <option value="푸르온">푸르온</option>
+          <option value="아웃백">아웃백</option>
+        </select>
+      </div>
       <div class="upload-zone" id="uz-bichuk" ondragover="dov(event,'uz-bichuk')" ondragleave="dlv('uz-bichuk')" ondrop="dop(event,'bichuk')">
         <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'bichuk')">
         <div class="upload-icon">📄</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
       </div>
       <div class="upload-status" id="us-bichuk"></div>
+      <button class="btn btn-outline btn-sm" style="margin-top:8px;width:100%" onclick="runCsmsOnlyAnalyze()">🔍 CSMS만 분석 실행</button>
     </div>
     <div class="upload-card">
       <div class="upload-title">📋 출고오더등록</div>
@@ -585,28 +729,198 @@ tr:hover td{background:#fafbff}
   </div>
   <div class="set-card">
     <div class="set-title">부진재고 기준</div>
-    <div class="set-row"><div class="set-lbl">⚠️ 유통기한 임박</div><input class="set-inp" type="number" id="set-exp" value="30"> 일 이내</div>
+    <div class="set-row"><div class="set-lbl">⚠️ 소비기한 임박</div><input class="set-inp" type="number" id="set-exp" value="30"> 일 이내</div>
   </div>
 </div>
 </div>
 
+<!-- 로트 상세 모달 -->
+<div class="lot-overlay" id="lot-overlay" onclick="if(event.target===this)closeLotModal()">
+  <div class="lot-modal">
+    <div class="lot-hdr">
+      <div>
+        <div class="lot-hdr-name" id="lot-name">-</div>
+        <div class="lot-hdr-sub" id="lot-sub">-</div>
+      </div>
+      <button class="lot-close" onclick="closeLotModal()">✕</button>
+    </div>
+    <div class="lot-stats">
+      <div class="lot-stat">
+        <div class="lot-stat-lbl">총 재고</div>
+        <div class="lot-stat-val" id="lot-total">- <span>BOX</span></div>
+      </div>
+      <div class="lot-stat">
+        <div class="lot-stat-lbl">로트 수</div>
+        <div class="lot-stat-val" id="lot-count">- <span>건</span></div>
+      </div>
+    </div>
+    <div class="lot-sub-lbl">소비기한 빠른 순</div>
+    <div class="lot-list" id="lot-list"></div>
+  </div>
+</div>
+
 <script>
+
+
+// ══════════════════════════════════════════════════════
+// 슬라이드 메뉴 & 화주사 관리
+// ══════════════════════════════════════════════════════
+
+// 화주사 목록 (고정 - 추후 동적 확장)
+const CLIENTS = [
+  { id:'삼진',   name:'삼진식품',          color:'#0f52ba', type:'full', sdmsName:'삼진식품' },
+  { id:'BRK',    name:'BRK',              color:'#2563eb', type:'csms', sdmsName:null },
+  { id:'BRK_D',  name:'BRK(던킨)',        color:'#7c3aed', type:'csms', sdmsName:null },
+  { id:'파리',   name:'파리PC',            color:'#d97706', type:'csms', sdmsName:null },
+  { id:'푸드랩', name:'푸드랩스',          color:'#16a34a', type:'csms', sdmsName:null },
+  { id:'푸드웰', name:'푸드웰',            color:'#0891b2', type:'csms', sdmsName:null },
+  { id:'푸르온', name:'푸르온',            color:'#059669', type:'csms', sdmsName:null },
+  { id:'아웃백', name:'아웃백',            color:'#dc2626', type:'csms', sdmsName:null },
+  { id:'미도',   name:'미도식품',          color:'#9333ea', type:'sdms', sdmsName:'[3PL]미도식품' },
+  { id:'파리크', name:'파리크라상',        color:'#f59e0b', type:'sdms', sdmsName:'[3PL]파리크라상' },
+  { id:'부산',   name:'부산식품',          color:'#ea580c', type:'sdms', sdmsName:'[3PL]부산식품' },
+  { id:'FMK',    name:'푸드엠코리아(FMK)', color:'#0284c7', type:'sdms', sdmsName:'[3PL]㈜푸드엠코리아' },
+];
+
+// SDMS 협력업체명 → CLIENTS id 역매핑
+const SDMS_NAME_MAP={};
+CLIENTS.forEach(c=>{ if(c.sdmsName) SDMS_NAME_MAP[c.sdmsName]=c.id; });
+
+// 화주사별 저장 데이터
+const clientData = {};  // { clientId: { result, dormant, savedAt } }
+let currentClient = null;
+
+// 슬라이드 메뉴 열기/닫기
+function openSlide(){
+  document.getElementById('sl-panel').classList.add('on');
+  document.getElementById('sl-overlay').classList.add('on');
+  document.body.style.overflow='hidden';
+}
+function closeSlide(){
+  document.getElementById('sl-panel').classList.remove('on');
+  document.getElementById('sl-overlay').classList.remove('on');
+  document.body.style.overflow='';
+}
+
+// 슬라이드 메뉴 화주사 목록 렌더링
+function renderSlideMenu(){
+  const body = document.getElementById('sl-body');
+  body.innerHTML = '<div class="sl-section-lbl">화주사</div>';
+  CLIENTS.forEach(c => {
+    const data = clientData[c.id];
+    let badge = '';
+    if (data) {
+      const danger = data.result.filter(r=>r.grade.includes('위험')).length;
+      const warn   = data.result.filter(r=>r.grade==='⚠️ 주의').length;
+      if (danger>0)      badge = `<span class="sl-item-badge">${danger}</span>`;
+      else if (warn>0)   badge = `<span class="sl-item-badge warn">${warn}</span>`;
+      else               badge = `<span class="sl-item-badge ok">✅</span>`;
+    }
+    const isOn = currentClient === c.id;
+    body.innerHTML += `
+      <div class="sl-item${isOn?' on':''}" onclick="selectClient('${c.id}')">
+        <div class="sl-item-ico" style="background:${c.color}">${c.name.slice(0,2)}</div>
+        <span class="sl-item-name">${c.name}</span>
+        ${badge}
+      </div>`;
+  });
+}
+
+// 화주사 선택
+// 화주사 type에 따라 탭 표시/숨김
+function updateTabs(type){
+  const riskTab = document.getElementById('tab-risk');
+  // full: 3개 모두 표시 / csms·sdms: 위험재고 탭 숨김
+  if(type==='full'){
+    riskTab.style.display='';
+  } else {
+    riskTab.style.display='none';
+    // 위험재고 탭이 활성화 상태면 홈으로 이동
+    if(riskTab.classList.contains('on')) switchTab('home');
+  }
+}
+
+function selectClient(id){
+  currentClient = id;
+  const c = CLIENTS.find(x=>x.id===id);
+  // 탑바 서브텍스트 업데이트
+  document.querySelector('.brand-sub').textContent = `안성센터 · ${c.name}`;
+  // 화주사 type에 따라 탭 표시/숨김
+  updateTabs(c.type||'full');
+  // 슬라이드 메뉴 갱신
+  renderSlideMenu();
+  closeSlide();
+  // 화주사 전환 시 필터/검색 초기화
+  _homeImpF='all'; _homeStateF='all'; _homeSortBy='adu'; _homeSearchQ='';
+  const searchEl=document.getElementById('home-search');
+  if(searchEl) searchEl.value='';
+  document.querySelectorAll('.filter-row .fbtn').forEach(b=>{
+    b.classList.remove('on','on-danger','on-warn','on-ok');
+  });
+  document.querySelectorAll('.filter-row .fbtn:first-child').forEach(b=>b.classList.add('on'));
+
+  // 데이터가 있으면 해당 화주사 데이터로 렌더링
+  if (clientData[id]) {
+    const d = clientData[id];
+    const danger   = d.result.filter(r=>r.grade.includes('위험'));
+    const warn     = d.result.filter(r=>r.grade==='⚠️ 주의');
+    const dormFFFFF= d.dormant.filter(r=>r.dgrade==='FFFFF');
+    const dormNoOut= d.dormant.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박');
+    const dormExp  = d.dormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박');
+    const dormZero = d.result.filter(r=>r.grade==='➖ 미회전');
+    _lastResult  = d.result;
+    _lastDormant = d.dormant;
+    renderHome(d.result, danger, warn);
+    renderRisk(d.result, danger, warn);
+    renderDormant(dormFFFFF, dormNoOut, dormExp, dormZero);
+    renderMsg(danger, warn);
+    document.getElementById('date-lbl').textContent = `기준일: ${d.savedAt}`;
+    switchTab('home');
+  } else {
+    // 데이터 없음 → 빈 화면
+    _lastResult=null; _lastDormant=null;
+    ['home','risk','dormant'].forEach(t=>{
+      const b=document.getElementById(t==='dormant'?'dorm':t+'-body')||
+              document.getElementById(t+'-body');
+      if(b) b.style.display='none';
+    });
+    document.getElementById('home-empty').style.display='block';
+    document.getElementById('risk-empty').style.display='block';
+    document.getElementById('dorm-empty').style.display='block';
+    switchTab('home');
+  }
+}
+
+// 화주사에 데이터 등록 (불러오기 / 분석 완료 시 호출)
+function registerClientData(id, result, dormant, savedAt){
+  clientData[id] = { result, dormant, savedAt };
+  renderSlideMenu();
+}
+
+// 초기 슬라이드 메뉴 렌더링
+window.addEventListener('DOMContentLoaded', ()=>{
+  renderSlideMenu();
+  // 삼진식품을 기본 선택
+  currentClient = '삼진';
+});
+
 // ── 전역 ──────────────────────────────────────────────────────
 const today = new Date();
 const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
 document.getElementById('date-lbl').textContent = `기준일: ${todayStr}`;
 function pad(n){return String(n).padStart(2,'0')}
 
-const S = {stock:null, bichuk:null, order:null, pick:[], stock_all:null};
+const S = {stock:null, csmsData:{}, order:null, pick:[], stock_all:null};
 let _lastResult=null, _lastDormant=null;
 let _cacheHome=[], _cacheDanger=[], _cacheWarn=[];
-let _homeImpF='all', _homeStateF='all', _homeSortBy='adu';
+let _homeImpF='all', _homeStateF='all', _homeSortBy='adu', _homeSearchQ='';
 let _scoreVisible=false;
 
 // ── 탭 전환 ────────────────────────────────────────────────────
 function switchTab(name){
+  // 탭 버튼은 home/risk/dormant 3개만 (upload/settings는 슬라이드 메뉴)
   document.querySelectorAll('.tab').forEach((t,i)=>
-    t.classList.toggle('on',['home','risk','dormant','upload','settings'][i]===name));
+    t.classList.toggle('on',['home','risk','dormant'][i]===name));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('on'));
   document.getElementById('pane-'+name).classList.add('on');
 }
@@ -698,6 +1012,17 @@ function readXlsx(file, type){
 }
 
 // ── 파일 파싱 ────────────────────────────────────────────────────
+// 소비기한 표기 정규화: 20260817 / 2026-08-17 / 2026.08.17 등 → 2026-08-17
+// 이미 yyyy-mm-dd면 그대로, 8자리 숫자면 하이픈 삽입, 그 외 형식은 숫자만 추출해 변환
+function normExpDate(v){
+  if(!v) return '';
+  const s=String(v).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // 이미 정규화된 형식
+  const digits=s.replace(/[^0-9]/g,'');
+  if(digits.length!==8) return s; // 변환 불가능한 형식은 원본 유지(안전)
+  return `${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6,8)}`;
+}
+
 function parseStock(wb, buf){
   const ws=wb.Sheets[wb.SheetNames[0]];
   const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
@@ -723,8 +1048,9 @@ function parseStock(wb, buf){
       _name:String(r['상품명']||'').trim(),
       _code:String(r['상품3PL코드']||r['상품코드']||'').trim(),
       _qty:parseFloat(r['총수량']||r['합계 : 총수량']||r['수량']||0),
-      _exp:String(r['유통기한']||''),
+      _exp:normExpDate(r['유통기한']),
       _loc:String(r['로케이션']||'').trim(),
+      _client:String(r['협력업체명']||'').trim(), // 화주사 구분용
     }));
 
   // stock_all (SHPLOC만 제외, FFFFF 포함)
@@ -732,11 +1058,14 @@ function parseStock(wb, buf){
     .map(r=>({
       _name:String(r['상품명']||'').trim(),
       _qty:parseFloat(r['총수량']||r['합계 : 총수량']||r['수량']||0),
-      _exp:String(r['유통기한']||''),
+      _exp:normExpDate(r['유통기한']),
       _isFFFFF:String(r['로케이션']||'').trim()==='FFFFF',
+      _client:String(r['협력업체명']||'').trim(),
     }));
 
-  setStatus('stock',`✅ ${S.stock.length}행 로드 완료 (FFFFF/SHPLOC 제외)`,'ok');
+  // SDMS 화주사 목록 감지
+  const sdmsClients=[...new Set(S.stock.map(r=>r._client).filter(Boolean))];
+  setStatus('stock',`✅ ${S.stock.length}행 로드 완료 (FFFFF/SHPLOC 제외) · ${sdmsClients.length}개 화주사 감지`,'ok');
 }
 
 function parseBichuk(wb){
@@ -744,25 +1073,38 @@ function parseBichuk(wb){
   const ws=wb.Sheets[shName];
   const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
   const hdrs=raw[0].map(h=>String(h));
-  const rows=raw.slice(1).filter(r=>r[0]&&String(r[0]).trim()!=='').map(r=>{
+  const rows=raw.slice(1).filter(r=>r[1]&&String(r[1]).trim()!=='').map(r=>{
     const o={};hdrs.forEach((h,i)=>o[h]=r[i]);return o;
-  }).filter(r=>String(Object.values(r)[0]||'').trim()!=='');  // 합계행 제거: 코드(첫컬럼)가 비어있는 행 제외
+  });  // 합계행 제거: 품명(2번째컬럼)이 비어있는 행 제외 — 상대코드 미사용 화주사(아웃백 등)도 정상 인식
   // 코드 컬럼: '상대코드' 우선, 없으면 첫 번째 컬럼
   const firstRow=rows[0]||{};
   const ck=Object.keys(firstRow).find(k=>k.includes('상대')&&k.includes('코드'))||Object.keys(firstRow)[0];
-  S.bichuk=rows.map(r=>{
+  const parsed=rows.map(r=>{
     const nk=Object.keys(r).find(k=>k.includes('탁')&&k.includes('품')&&k.includes('명'))||Object.keys(r)[1];
     return {
       _code: String(r[ck]||'').trim(),
       _name: String(r[nk]||'').trim(),
       _qty:  parseFloat(r['재고수량'])||0,
-      _exp:  String(r['소비일자']||''),
+      _exp:  normExpDate(r['소비일자']),
     };
   }).filter(r=>r._name);
-  // 코드->품명 역매핑 저장 (WMS 코드로 매칭 시 사용)
-  S._bichukCodeMap={};
-  S.bichuk.forEach(r=>{ if(r._code) S._bichukCodeMap[r._code]=r._name; });
-  setStatus('bichuk',`\u2705 ${S.bichuk.length}\ud589 \ub85c\ub4dc \uc644\ub8cc (${Object.keys(S._bichukCodeMap).length}\uac1c \ucf54\ub4dc \uc778\uc2dd)`,'ok');
+  // CSMS 화주사 선택값 확인
+  const csmsSel=document.getElementById('csms-client-sel');
+  const csmsClient=csmsSel?csmsSel.value:'';
+  if(!csmsClient){
+    setStatus('bichuk','⚠️ 화주사를 먼저 선택하세요','err');
+    return;
+  }
+  // 화주사별 독립 저장 (기존 다른 화주사 데이터 유지)
+  S.csmsData[csmsClient]=parsed;
+  const c=CLIENTS.find(x=>x.id===csmsClient);
+  const clientName=c?c.name:csmsClient;
+  // 업로드된 화주사 목록 표시
+  const uploadedList=Object.keys(S.csmsData).map(id=>{
+    const cl=CLIENTS.find(x=>x.id===id);
+    return cl?cl.name:id;
+  }).join(', ');
+  setStatus('bichuk',`✅ [${clientName}] ${parsed.length}행 저장 완료 | 저장된 화주사: ${uploadedList}`,'ok');
 }
 
 function parseOrder(wb){
@@ -840,8 +1182,76 @@ function setStatus(type,msg,cls){
 try{const saved=localStorage.getItem('gfs_pick');if(saved){S.pick=JSON.parse(saved);updatePickInfo()}}catch(e){}
 
 // ── 분석 ─────────────────────────────────────────────────────
+// ── CSMS 전용 화주사 분석 (SDMS/피킹 없이 독립 실행) ─────────────
+// analyze() 안에서도 자동 호출되고, CSMS만 올렸을 때도 단독 호출 가능
+// 데이터입력 화면에서 'CSMS만 분석 실행' 버튼 클릭 시 호출
+function runCsmsOnlyAnalyze(){
+  if(!Object.keys(S.csmsData).length){
+    alert('CSMS 파일을 먼저 업로드하세요');
+    return;
+  }
+  const n = analyzeCsmsOnly();
+  if(n===0){
+    alert('등록된 CSMS 데이터가 없습니다');
+    return;
+  }
+  renderSlideMenu();
+  const names = CLIENTS.filter(c=>c.type==='csms'&&S.csmsData[c.id]&&S.csmsData[c.id].length)
+    .map(c=>c.name).join(', ');
+  alert(`✅ CSMS 분석 완료 (${n}개 화주사)\n${names}\n슬라이드 메뉴(☰)에서 화주사를 선택하세요`);
+}
+
+function analyzeCsmsOnly(){
+  const EXP_D = parseInt(document.getElementById('set-exp').value)||30;
+  const todayD2 = new Date(todayStr);
+  let registered = 0;
+
+  CLIENTS.filter(c=>c.type==='csms').forEach(c=>{
+    const csms = S.csmsData[c.id];
+    if(!csms||!csms.length) return;
+
+    // CSMS 품목별 합산
+    const csmsMap={};
+    csms.forEach(r=>{
+      const n=r._name; if(!n)return;
+      if(!csmsMap[n])csmsMap[n]={name:n,code:r._code,wms:0,bichuk:0,total:0,exps:[]};
+      csmsMap[n].bichuk+=r._qty;
+      csmsMap[n].total +=r._qty;
+      if(r._exp)csmsMap[n].exps.push({qty:r._qty,exp:r._exp});
+    });
+
+    // result 형태로 변환 (ADU=0, DoS=999, 미회전)
+    const cResult=Object.values(csmsMap).map(r=>({
+      code:r.code, name:r.name,
+      wms:0, bichuk:Math.round(r.bichuk), total:Math.round(r.total),
+      adu:0, dos:999, miss:0, fffff:0,
+      grade:'➖ 미회전', imp:'미회전', impCode:'0', impPct:100,
+      score:9999, exps:r.exps,
+    }));
+
+    // 부진재고: 소비기한 임박 계산
+    const cDormant=[];
+    csms.forEach(r=>{
+      if(!r._exp)return;
+      let exp=String(r._exp).replace(/[^0-9]/g,'');
+      if(exp.length!==8)return;
+      exp=`${exp.slice(0,4)}-${exp.slice(4,6)}-${exp.slice(6,8)}`;
+      const daysLeft=Math.floor((new Date(exp)-todayD2)/(1000*60*60*24));
+      if(daysLeft<0)return;
+      const dgrade=daysLeft<=EXP_D?'임박':'정상';
+      if(dgrade==='임박')
+        cDormant.push({name:r._name,exp,qty:r._qty,daysLeft,adu:0,expected:0,remaining:Math.round(r._qty),dgrade});
+    });
+
+    registerClientData(c.id, cResult, cDormant, todayStr);
+    registered++;
+  });
+
+  return registered;
+}
+
 function analyze(){
-  if(!S.stock){alert('현재고(WMS) 파일을 먼저 업로드하세요');return}
+  if(!S.stock){alert('현재고(SDMS) 파일을 먼저 업로드하세요');return}
   if(!S.pick.length){alert('할당피킹 파일을 먼저 업로드하세요');return}
 
   const DANGER_D=parseInt(document.getElementById('set-danger').value)||3;
@@ -853,22 +1263,30 @@ function analyze(){
 
   // 1. 현재고 합산 (WMS + 비축)
   // 코드 기준 매핑 테이블: 상품3PL코드 → WMS 품명 (1회 생성, 전체 재사용)
+  // ※ 코드 매핑은 SDMS 전체 기준으로 만들어 다른 화주사 코드 조회도 가능하게 유지
   const codeToWmsName={};
   S.stock.forEach(r=>{ if(r._code&&r._name) codeToWmsName[r._code]=r._name; });
 
+  // 삼진식품 SDMS 행만 추출 (협력업체명에 '삼진식품' 포함된 행)
+  // 협력업체명이 비어있는 파일(삼진식품 단독 업로드 등)은 전체를 삼진식품으로 간주(하위호환)
+  const hasClientCol = S.stock.some(r=>r._client);
+  const samjinStock = hasClientCol
+    ? S.stock.filter(r=>r._client && r._client.includes('삼진식품'))
+    : S.stock;
+
   const stockMap={};
-  S.stock.forEach(r=>{
+  samjinStock.forEach(r=>{
     const n=r._name,c=r._code,q=r._qty,e=r._exp;
     if(!n)return;
     if(!stockMap[n])stockMap[n]={wms:0,bichuk:0,code:c,exps:[]};
     stockMap[n].wms+=q;
     if(e)stockMap[n].exps.push({qty:q,exp:e});
   });
-  if(S.bichuk){
-    S.bichuk.forEach(r=>{
+  // 삼진식품 CSMS만 합산 (다른 화주사 CSMS는 섞이지 않도록 분리)
+  const samjinCsms=S.csmsData['삼진']||[];
+  if(samjinCsms.length){
+    samjinCsms.forEach(r=>{
       const q=r._qty; if(!q)return;
-      // 비축 상대코드 → WMS 상품3PL코드 기준으로 품명 조회
-      // 코드 매칭 실패 시 품명 직접 사용(fallback)
       const n=codeToWmsName[r._code]||r._name;
       if(!n)return;
       if(!stockMap[n])stockMap[n]={wms:0,bichuk:0,code:r._code||'',exps:[]};
@@ -955,9 +1373,15 @@ function analyze(){
   const normal=result.filter(r=>r.grade==='✅ 정상');
   const zero  =result.filter(r=>r.grade==='➖ 미회전');
 
-  // 6. 부진재고 계산 (stock_all 기반, 유통기한별)
+  // 6. 부진재고 계산 (stock_all 기반, 소비기한별)
+  // 삼진식품 SDMS 행만 사용 (협력업체명에 '삼진식품' 포함된 행, 컬럼 없으면 전체)
+  const hasClientCol2 = (S.stock_all||[]).some(r=>r._client);
+  const samjinStockAll = hasClientCol2
+    ? (S.stock_all||[]).filter(r=>r._client && r._client.includes('삼진식품'))
+    : (S.stock_all||[]);
+
   const batchMap={};
-  (S.stock_all||[]).forEach(r=>{
+  samjinStockAll.forEach(r=>{
     if(!r._name||!r._exp)return;
     let exp=String(r._exp).replace(/[^0-9]/g,'');
     if(exp.length!==8)return;
@@ -966,13 +1390,13 @@ function analyze(){
     if(!batchMap[key])batchMap[key]={name:r._name,exp,qty:0,isFFFFF:r._isFFFFF};
     batchMap[key].qty+=r._qty;
   });
-  if(S.bichuk){
-    S.bichuk.forEach(r=>{
+  // 삼진식품 CSMS 부진재고만 합산 (다른 화주사는 섞이지 않도록 분리)
+  if(samjinCsms.length){
+    samjinCsms.forEach(r=>{
       if(!r._exp)return;
       let exp=String(r._exp).replace(/[^0-9]/g,'');
       if(exp.length!==8)return;
       exp=`${exp.slice(0,4)}-${exp.slice(4,6)}-${exp.slice(6,8)}`;
-      // 위에서 만든 codeToWmsName 재사용 (코드 기준 WMS 품명 정규화)
       const n=codeToWmsName[r._code]||r._name;
       if(!n)return;
       const key=`${n}__${exp}__B`;
@@ -1004,11 +1428,103 @@ function analyze(){
 
   _lastResult=result;_lastDormant=dormList;
 
-  // 7. 렌더링
-  renderHome(result,danger,warn);
-  renderRisk(result,danger,warn);
-  renderDormant(dormFFFFF,dormNoOut,dormExp,dormZero);
-  renderMsg(danger,warn);
+  // 7. 화주사별 결과 등록 (슬라이드 메뉴 연결)
+
+  // ① 삼진식품: 전체 결과 등록
+  registerClientData('삼진', result, dormList, todayStr);
+
+  // ② SDMS 3PL 화주사: 화주사별 재고로 별도 계산 후 등록
+  // (삼진식품 stockMap과는 분리된 화주사 전용 재고 합산 — 섞이지 않음)
+  CLIENTS.filter(c=>c.type==='sdms').forEach(c=>{
+    if(!c.sdmsName) return;
+    const cStock = S.stock.filter(r=>r._client===c.sdmsName);
+    if(!cStock.length) return;
+
+    // 화주사 전용 stockMap (해당 화주사 SDMS만)
+    const cStockMap={};
+    cStock.forEach(r=>{
+      const n=r._name,q=r._qty,e=r._exp;
+      if(!n)return;
+      if(!cStockMap[n])cStockMap[n]={wms:0,bichuk:0,code:r._code,exps:[]};
+      cStockMap[n].wms+=q;
+      if(e)cStockMap[n].exps.push({qty:q,exp:e});
+    });
+
+    // 화주사 전용 result (ADU/DoS/등급은 공통 aduMap·missMap·getImp 재사용)
+    const cResult=Object.entries(cStockMap).map(([name,s])=>{
+      const wms=Math.round(s.wms),total2=wms;
+      const adu=aduMap[name]||0;
+      const dos=adu>0?Math.round(total2/adu*10)/10:999;
+      const miss=missMap[name]||0;
+      const imp=getImp(name);
+      const fffff=Math.round(fffffMap[name]||0);
+      let grade;
+      if(miss>0)                    grade='🚨 즉시위험';
+      else if(adu>0&&dos<DANGER_D)  grade='🔴 위험';
+      else if(adu>0&&dos<WARN_D)    grade='⚠️ 주의';
+      else if(adu===0)              grade='➖ 미회전';
+      else                          grade='✅ 정상';
+      return{code:s.code,name,wms,bichuk:0,total:total2,adu,dos,miss,grade,
+             imp:imp.label,impCode:imp.code,impPct:imp.pct,fffff,exps:s.exps,score:9999};
+    });
+
+    // 화주사 전용 부진재고 (해당 화주사 stock_all만)
+    const cStockAll=(S.stock_all||[]).filter(r=>r._client===c.sdmsName);
+    const cBatchMap={};
+    cStockAll.forEach(r=>{
+      if(!r._name||!r._exp)return;
+      let exp=String(r._exp).replace(/[^0-9]/g,'');
+      if(exp.length!==8)return;
+      exp=`${exp.slice(0,4)}-${exp.slice(4,6)}-${exp.slice(6,8)}`;
+      const key=`${r._name}__${exp}__${r._isFFFFF?'F':'N'}`;
+      if(!cBatchMap[key])cBatchMap[key]={name:r._name,exp,qty:0,isFFFFF:r._isFFFFF};
+      cBatchMap[key].qty+=r._qty;
+    });
+    const cDormant=Object.values(cBatchMap).map(b=>{
+      const expD=new Date(b.exp);
+      const daysLeft=Math.floor((expD-todayD)/(1000*60*60*24));
+      if(daysLeft<0)return null;
+      const adu=aduMap[b.name]||0;
+      const expected=Math.floor(adu*daysLeft);
+      const remaining=Math.round(b.qty-expected);
+      let dgrade;
+      if(b.isFFFFF)                          dgrade='FFFFF';
+      else if(remaining>0 && daysLeft<=EXP_D) dgrade='소진불가+임박';
+      else if(remaining>0)                   dgrade='소진불가';
+      else if(daysLeft<=EXP_D)               dgrade='임박';
+      else                                   dgrade='정상';
+      return{...b,daysLeft,adu,expected,remaining,dgrade};
+    }).filter(Boolean);
+
+    registerClientData(c.id, cResult, cDormant, todayStr);
+  });
+
+  // ③ CSMS 전용 화주사는 analyzeCsmsOnly()에서 별도 처리 (자동 호출)
+  analyzeCsmsOnly();
+
+  // 8. 현재 선택된 화주사로 렌더링
+  const selClient = currentClient || '삼진';
+  const selData = clientData[selClient];
+  if(selData){
+    const selDgr = selData.result.filter(r=>r.grade.includes('위험'));
+    const selWrn = selData.result.filter(r=>r.grade==='⚠️ 주의');
+    const selFFFFF  = selData.dormant.filter(r=>r.dgrade==='FFFFF');
+    const selNoOut  = selData.dormant.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박');
+    const selExp    = selData.dormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박');
+    const selZero   = selData.result.filter(r=>r.grade==='➖ 미회전');
+    // 모달 검색용 _lastResult를 현재 선택 화주사 데이터로 동기화
+    _lastResult  = selData.result;
+    _lastDormant = selData.dormant;
+    renderHome(selData.result, selDgr, selWrn);
+    renderRisk(selData.result, selDgr, selWrn);
+    renderDormant(selFFFFF, selNoOut, selExp, selZero);
+    renderMsg(selDgr, selWrn);
+  } else {
+    renderHome(result,danger,warn);
+    renderRisk(result,danger,warn);
+    renderDormant(dormFFFFF,dormNoOut,dormExp,dormZero);
+    renderMsg(danger,warn);
+  }
   switchTab('home');
 }
 
@@ -1057,6 +1573,11 @@ function renderHomeTable(rows){
   else if(_homeStateF==='warn') filtered=filtered.filter(r=>r.grade==='⚠️ 주의');
   else if(_homeStateF==='ok') filtered=filtered.filter(r=>r.grade==='✅ 정상');
   else if(_homeStateF==='zero') filtered=filtered.filter(r=>r.grade==='➖ 미회전');
+  // 품명 검색 필터
+  if(_homeSearchQ) filtered=filtered.filter(r=>r.name.includes(_homeSearchQ));
+  // 검색 결과 건수 표시
+  const countEl=document.getElementById('home-search-count');
+  if(countEl) countEl.textContent=_homeSearchQ?`${filtered.length}개 검색됨`:'';
   if(_homeSortBy==='dos') filtered.sort((a,b)=>a.dos-b.dos);
   else if(_homeSortBy==='score') filtered.sort((a,b)=>a.score-b.score);
   else filtered.sort((a,b)=>b.adu-a.adu);
@@ -1076,7 +1597,7 @@ function renderHomeTable(rows){
     const state=isDgr?`<span class="badge bd">${r.grade}</span>`:isWrn?`<span class="badge bw">⚠️ 주의</span>`:isZero?`<span class="badge bm">➖ 미회전</span>`:`<span class="badge bo">✅ 정상</span>`;
     return`<tr class="${bg}">
       <td style="text-align:center;color:var(--text3);font-weight:600">${i+1}</td>
-      <td class="l">${r.name}</td>
+      <td class="l">${nameCell(r.name,true)}</td>
       <td>${r.wms.toLocaleString()}</td>
       <td>${r.bichuk.toLocaleString()}</td>
       <td><strong>${r.total.toLocaleString()}</strong></td>
@@ -1087,6 +1608,11 @@ function renderHomeTable(rows){
       <td style="text-align:center">${state}</td>
     </tr>`;
   }).join('');
+}
+
+function homeSearch(q){
+  _homeSearchQ=q.trim();
+  renderHomeTable(_cacheHome);
 }
 
 function homeFilter(type,val,btn){
@@ -1129,7 +1655,7 @@ function renderRiskTable(tbodyId,rows){
     const bar=d?`<div class="dos-wrap"><div class="dos-bg"><div class="dos-fill" style="width:${pct}%;background:${dc}"></div></div><span class="dos-val" style="color:${dc}">${d.toFixed(1)}일</span></div>`:'<span>-</span>';
     const scoreCell=showScore?`<td style="font-size:11px;color:var(--text3)">${r.score}</td>`:'';
     return`<tr class="${isDgr?'row-d':'row-w'}" data-imp="${r.impCode}">
-      <td class="l">${r.name}</td>
+      <td class="l">${nameCell(r.name,currentClient==='삼진')}</td>
       <td>${r.wms.toLocaleString()}</td><td>${r.bichuk.toLocaleString()}</td>
       <td><strong>${r.total.toLocaleString()}</strong></td>
       <td>${r.adu.toFixed(1)}</td>
@@ -1175,7 +1701,9 @@ function renderDormant(fffff,noout,exp,zero){
   document.getElementById('dc-zero').textContent=zero.length;
   renderDormTable('dorm-fffff-body',fffff,true);
   renderDormTable('dorm-noout-body',noout);
-  renderDormTable('dorm-exp-body',exp);
+  // ③ 소비기한 임박: 남은일수 오름차순 정렬
+  const expSorted=[...exp].sort((a,b)=>a.daysLeft-b.daysLeft);
+  renderDormTable('dorm-exp-body',expSorted);
   renderZeroTable(zero);
   document.getElementById('dorm-empty').style.display='none';
   document.getElementById('dorm-body').style.display='block';
@@ -1186,15 +1714,21 @@ function renderDormTable(tbodyId,rows,isFFFFF=false){
   if(!rows.length){tb.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--text3)">해당 없음 ✅</td></tr>`;return}
   tb.innerHTML=rows.map((r,i)=>{
     const dl=r.daysLeft;
-    const dlc=dl<=7?'var(--danger)':dl<=30?'var(--warn)':'var(--text2)';
+    // ① D-day 색상 강화: D-7 이하 빨강, D-15 이하 주황, D-30 이하 노랑
+    const dlc=dl<=7?'var(--danger)':dl<=15?'#c2410c':dl<=30?'var(--warn)':'var(--text2)';
+    // ① 행 배경도 D-day 기준으로 강조
+    const rowBg=isFFFFF?'row-p':dl<=7?'row-d':dl<=15?'row-w':'';
     const rc=r.remaining>0?'var(--danger)':'var(--ok)';
+    // D-7 이하면 남은일수 옆에 D-day 태그 표시
+    const dTag=dl<=7?`<span style="font-size:9px;background:var(--danger);color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px">D-${dl}</span>`
+      :dl<=15?`<span style="font-size:9px;background:#c2410c;color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px">D-${dl}</span>`:'';
     const badge=isFFFFF?`<span class="badge bp">출고불가</span>`
       :r.dgrade==='소진불가+임박'?`<span class="badge bd">소진불가</span> <span class="badge bw">임박</span>`
       :r.dgrade==='소진불가'?`<span class="badge bd">소진불가</span>`:`<span class="badge bw">임박</span>`;
-    return`<tr class="${isFFFFF?'row-p':i%2?'':'row-w'}">
-      <td class="l">${r.name}${isFFFFF?'<span style="font-size:10px;color:var(--purple);margin-left:4px;font-weight:600">[FFFFF]</span>':''}</td>
+    return`<tr class="${rowBg}">
+      <td class="l">${nameCell(r.name,currentClient==='삼진')}${isFFFFF?'<span style="font-size:10px;color:var(--purple);margin-left:4px;font-weight:600">[FFFFF]</span>':''}</td>
       <td style="text-align:center">${r.exp}</td>
-      <td style="color:${dlc};font-weight:600;text-align:center">${dl}일</td>
+      <td style="color:${dlc};font-weight:700;text-align:center">${dl}일${dTag}</td>
       <td>${Math.round(r.qty).toLocaleString()}</td>
       <td>${r.adu.toFixed(1)}</td>
       <td>${r.expected.toLocaleString()}</td>
@@ -1210,7 +1744,7 @@ function renderZeroTable(rows){
   tb.innerHTML=rows.map((r,i)=>{
     const exp=r.exps&&r.exps.length?r.exps.sort((a,b)=>a.exp.localeCompare(b.exp))[0].exp:'-';
     return`<tr class="${i%2?'':''}">
-      <td class="l">${r.name}</td>
+      <td class="l">${nameCell(r.name,currentClient==='삼진')}</td>
       <td>${r.wms.toLocaleString()}</td>
       <td>${r.bichuk.toLocaleString()}</td>
       <td><strong>${r.total.toLocaleString()}</strong></td>
@@ -1241,8 +1775,16 @@ function copyMsg(){
 
 // ── 결과 저장/불러오기 ─────────────────────────────────────────
 function saveResult(){
-  if(!_lastResult){alert('먼저 분석을 실행하세요');return}
-  const payload=JSON.stringify({result:_lastResult,dormant:_lastDormant,savedAt:todayStr});
+  // 전체 화주사 clientData 저장
+  if(!Object.keys(clientData).length){alert('먼저 분석을 실행하세요');return}
+  const payload=JSON.stringify({
+    version:2,
+    clientData,           // 전체 화주사 결과
+    savedAt:todayStr,
+    // 하위호환: 현재 선택 화주사 결과도 포함
+    result:_lastResult||[],
+    dormant:_lastDormant||[],
+  });
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
   a.download=`gfs_result_${todayStr}.txt`;a.click();
@@ -1254,20 +1796,39 @@ function loadResult(e){
   reader.onload=ev=>{
     try{
       const payload=JSON.parse(ev.target.result);
-      _lastResult=payload.result;_lastDormant=payload.dormant||[];
-      const danger=payload.result.filter(r=>r.grade.includes('위험'));
-      const warn  =payload.result.filter(r=>r.grade==='⚠️ 주의');
-      const dormFFFFF=_lastDormant.filter(r=>r.dgrade==='FFFFF');
-      const dormNoOut=_lastDormant.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박');
-      const dormExp  =_lastDormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박');
-      const dormZero =payload.result.filter(r=>r.grade==='➖ 미회전');
-      renderHome(payload.result,danger,warn);
-      renderRisk(payload.result,danger,warn);
-      renderDormant(dormFFFFF,dormNoOut,dormExp,dormZero);
-      renderMsg(danger,warn);
-      document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
-      switchTab('home');
-      alert(`✅ ${payload.savedAt} 데이터 로드 완료`);
+
+      if(payload.version===2 && payload.clientData){
+        // ── 신규 포맷: 전체 화주사 한번에 복원 ──
+        Object.entries(payload.clientData).forEach(([id,d])=>{
+          registerClientData(id, d.result, d.dormant||[], d.savedAt||payload.savedAt);
+        });
+        document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
+        // 슬라이드 메뉴 배지만 갱신 (화주사 자동 선택 없음)
+        renderSlideMenu();
+        const cnt=Object.keys(payload.clientData).length;
+        document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
+        alert(`✅ ${payload.savedAt} 전체 ${cnt}개 화주사 데이터 로드 완료\n슬라이드 메뉴(☰)에서 화주사를 선택하세요`);
+      } else {
+        // ── 구버전 포맷 호환 ──
+        if(!currentClient) currentClient='삼진';
+        _lastResult=payload.result;_lastDormant=payload.dormant||[];
+        registerClientData(currentClient, payload.result, payload.dormant||[], payload.savedAt);
+        const danger=payload.result.filter(r=>r.grade.includes('위험'));
+        const warn  =payload.result.filter(r=>r.grade==='⚠️ 주의');
+        const dormFFFFF=_lastDormant.filter(r=>r.dgrade==='FFFFF');
+        const dormNoOut=_lastDormant.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박');
+        const dormExp  =_lastDormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박');
+        const dormZero =payload.result.filter(r=>r.grade==='➖ 미회전');
+        renderHome(payload.result,danger,warn);
+        renderRisk(payload.result,danger,warn);
+        renderDormant(dormFFFFF,dormNoOut,dormExp,dormZero);
+        renderMsg(danger,warn);
+        document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
+        const c=CLIENTS.find(x=>x.id===currentClient);
+        document.querySelector('.brand-sub').textContent=`안성센터 · ${c?c.name:currentClient}`;
+        switchTab('home');
+        alert(`✅ ${payload.savedAt} 데이터 로드 완료`);
+      }
     }catch(err){alert('❌ 파일 읽기 실패: '+err.message)}
   };
   reader.readAsText(f);
@@ -1295,6 +1856,53 @@ function exportExcel(){
 // ── 유틸 ──────────────────────────────────────────────────────
 function impClass(code){
   if(code==='3')return'i3';if(code==='2')return'i2';if(code==='1')return'i1';return'i0';
+}
+
+// ══════════════════════════════════════════════════════
+// 로트 상세 모달 (소비기한별 재고 확인)
+// ══════════════════════════════════════════════════════
+
+// 품명 셀 생성: clickable=true면 클릭 가능한 링크, false면 일반 텍스트
+function nameCell(name, clickable){
+  if(clickable) return `<span class="name-click" onclick="event.stopPropagation();showLotModal('${name.replace(/'/g,"\\'")}')">${name}</span>`;
+  return name;
+}
+
+function showLotModal(name){
+  if(!_lastResult) return;
+  const r=_lastResult.find(x=>x.name===name);
+  if(!r){ return; }
+  const exps=(r.exps||[]).filter(e=>e.exp).slice().sort((a,b)=>a.exp.localeCompare(b.exp));
+
+  document.getElementById('lot-name').textContent=name;
+  const c=CLIENTS.find(x=>x.id===currentClient);
+  document.getElementById('lot-sub').textContent=`${c?c.name:currentClient} · ${r.code||'-'}`;
+  document.getElementById('lot-total').innerHTML=`${r.total.toLocaleString()} <span>BOX</span>`;
+  document.getElementById('lot-count').innerHTML=`${exps.length} <span>건</span>`;
+
+  const todayD=new Date(todayStr);
+  const listEl=document.getElementById('lot-list');
+  if(!exps.length){
+    listEl.innerHTML=`<div class="lot-empty">등록된 소비기한 정보가 없습니다</div>`;
+  } else {
+    listEl.innerHTML=exps.map(e=>{
+      const daysLeft=Math.floor((new Date(e.exp)-todayD)/(1000*60*60*24));
+      const urgent=daysLeft<=30;
+      return `<div class="lot-row ${urgent?'urgent':''}">
+        <div>
+          <div class="lot-row-date">${e.exp}</div>
+          <div class="lot-row-d">D-${daysLeft}</div>
+        </div>
+        <div class="lot-row-qty">${Math.round(e.qty).toLocaleString()} BOX</div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('lot-overlay').classList.add('on');
+}
+
+function closeLotModal(){
+  document.getElementById('lot-overlay').classList.remove('on');
 }
 
 // ══════════════════════════════════════════════════════
