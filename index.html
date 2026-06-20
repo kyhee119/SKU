@@ -729,7 +729,72 @@ tr:hover td{background:#fafbff}
   </div>
   <div class="set-card">
     <div class="set-title">부진재고 기준</div>
-    <div class="set-row"><div class="set-lbl">⚠️ 소비기한 임박</div><input class="set-inp" type="number" id="set-exp" value="30"> 일 이내</div>
+    <div class="set-row"><div class="set-lbl">⚠️ 소비기한 임박</div><input class="set-inp" type="number" id="set-exp" value="120"> 일 이내</div>
+  </div>
+
+  <div class="set-card" style="max-width:560px">
+    <div class="set-title">📖 용어 정리 · 계산 방법</div>
+
+    <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">ADU (Average Daily Units · 일평균 출고량)</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.7">
+        최근 <strong>ADU 계산 기간</strong>(기본 14일) 동안의 할당피킹 데이터를 기준으로,<br>
+        <code style="background:var(--bg);padding:1px 5px;border-radius:3px">ADU = 기간 내 총 할당수량 ÷ 실제 출고가 있었던 일수</code><br>
+        품목별 하루 평균 출고량을 의미합니다. ADU가 높을수록 자주 나가는 주력 상품입니다.
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">DoS (Days of Stock · 재고 소진일수)</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.7">
+        <code style="background:var(--bg);padding:1px 5px;border-radius:3px">DoS = 총재고(SDMS+CSMS) ÷ ADU</code><br>
+        현재 재고로 며칠치 출고가 가능한지를 나타냅니다. 숫자가 작을수록 재고 소진이 임박했다는 뜻입니다.<br>
+        ADU가 0(미회전)인 품목은 DoS를 계산할 수 없어 999(무한대)로 처리됩니다.
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">SKU 상태 분류</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.85">
+        <span class="badge bd" style="margin-right:4px">🔴 위험</span> DoS가 위험 기준일(기본 3일) 미만<br>
+        <span class="badge bw" style="margin-right:4px">⚠️ 주의</span> DoS가 주의 기준일(기본 7일) 미만<br>
+        <span class="badge bo" style="margin-right:4px">✅ 정상</span> DoS가 주의 기준일 이상<br>
+        <span class="badge bm" style="margin-right:4px">➖ 미회전</span> 최근 기간 동안 출고 이력이 전혀 없음(ADU=0)<br>
+        🚨 즉시위험은 당일 미출(미할당·부분할당·부분피킹)이 발생한 경우 최우선으로 표시됩니다.
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">중요도 (⭐ 주력 / 일반 / 저회전)</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.7">
+        ADU가 0보다 큰 품목들을 ADU 기준으로 순위를 매겨 백분위로 나눕니다.<br>
+        <strong>⭐⭐⭐ 주력</strong>: ADU 상위 30% 이내&nbsp;&nbsp;
+        <strong>⭐ 저회전</strong>: ADU 하위 30% 이내&nbsp;&nbsp;
+        <strong>⭐⭐ 일반</strong>: 나머지<br>
+        ADU=0인 품목은 중요도 계산에서 제외되고 자동으로 미회전 처리됩니다.
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">우선순위 점수 (위험재고 정렬용)</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.7">
+        위험·주의 SKU 중에서 어떤 것부터 처리해야 하는지 정하는 점수입니다.<br>
+        <code style="background:var(--bg);padding:1px 5px;border-radius:3px">점수 = (DoS 순위 × 0.7) + (ADU 순위 × 0.3)</code><br>
+        점수가 낮을수록(=DoS가 짧고 ADU가 높을수록) 우선순위가 높습니다.
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">부진재고 판정 (소비기한 기반)</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.85">
+        <span class="badge bp" style="margin-right:4px">출고불가</span> FFFFF 로케이션 재고 (출고 불가 위치)<br>
+        <span class="badge bd" style="margin-right:4px">소진불가</span> 소비기한 내에 ADU로 다 소진하지 못할 것으로 예상되는 재고<br>
+        <code style="background:var(--bg);padding:1px 5px;border-radius:3px">예상소진 = ADU × 남은일수</code>,
+        <code style="background:var(--bg);padding:1px 5px;border-radius:3px">잔여예상 = 현재고 − 예상소진</code> (양수면 소진불가)<br>
+        <span class="badge bw" style="margin-right:4px">임박</span> 소비기한이 설정 기준일(기본 30일) 이내로 남은 재고<br>
+        <span class="badge bm" style="margin-right:4px">제조일자 기준</span> 소비기한 데이터가 없는 화주사(예: BRK)는 제조일자 기준 1년(365일) 경과 시 "장기보관"으로 표시
+      </div>
+    </div>
   </div>
 </div>
 </div>
@@ -866,7 +931,7 @@ function selectClient(id){
     const warn     = d.result.filter(r=>r.grade==='⚠️ 주의');
     const dormFFFFF= d.dormant.filter(r=>r.dgrade==='FFFFF');
     const dormNoOut= d.dormant.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박');
-    const dormExp  = d.dormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박');
+    const dormExp  = d.dormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박'||r.dgrade==='장기보관');
     const dormZero = d.result.filter(r=>r.grade==='➖ 미회전');
     _lastResult  = d.result;
     _lastDormant = d.dormant;
@@ -1086,8 +1151,13 @@ function parseBichuk(wb){
       _name: String(r[nk]||'').trim(),
       _qty:  parseFloat(r['재고수량'])||0,
       _exp:  normExpDate(r['소비일자']),
+      _mfg:  normExpDate(r['제조일자']), // 소비일자가 없는 화주사(BRK 등)는 제조일자 기준 관리
     };
   }).filter(r=>r._name);
+  // 이 업로드가 소비일자 기반인지 제조일자 기반인지 판단 (전체 행 중 소비일자 있는 비율로 자동 감지)
+  const expCount=parsed.filter(r=>r._exp).length;
+  const mfgCount=parsed.filter(r=>r._mfg).length;
+  const dateMode=(expCount===0 && mfgCount>0) ? 'mfg' : 'exp'; // 소비일자 전무 + 제조일자 존재 → 제조일자 모드
   // CSMS 화주사 선택값 확인
   const csmsSel=document.getElementById('csms-client-sel');
   const csmsClient=csmsSel?csmsSel.value:'';
@@ -1097,6 +1167,8 @@ function parseBichuk(wb){
   }
   // 화주사별 독립 저장 (기존 다른 화주사 데이터 유지)
   S.csmsData[csmsClient]=parsed;
+  if(!S.csmsDateMode) S.csmsDateMode={};
+  S.csmsDateMode[csmsClient]=dateMode; // 'exp'(소비기한) 또는 'mfg'(제조일자만)
   const c=CLIENTS.find(x=>x.id===csmsClient);
   const clientName=c?c.name:csmsClient;
   // 업로드된 화주사 목록 표시
@@ -1104,7 +1176,8 @@ function parseBichuk(wb){
     const cl=CLIENTS.find(x=>x.id===id);
     return cl?cl.name:id;
   }).join(', ');
-  setStatus('bichuk',`✅ [${clientName}] ${parsed.length}행 저장 완료 | 저장된 화주사: ${uploadedList}`,'ok');
+  const modeLabel=dateMode==='mfg'?' (제조일자 기준)':'';
+  setStatus('bichuk',`✅ [${clientName}] ${parsed.length}행 저장 완료${modeLabel} | 저장된 화주사: ${uploadedList}`,'ok');
 }
 
 function parseOrder(wb){
@@ -1202,7 +1275,7 @@ function runCsmsOnlyAnalyze(){
 }
 
 function analyzeCsmsOnly(){
-  const EXP_D = parseInt(document.getElementById('set-exp').value)||30;
+  const EXP_D = parseInt(document.getElementById('set-exp').value)||120;
   const todayD2 = new Date(todayStr);
   let registered = 0;
 
@@ -1210,14 +1283,17 @@ function analyzeCsmsOnly(){
     const csms = S.csmsData[c.id];
     if(!csms||!csms.length) return;
 
-    // CSMS 품목별 합산
+    const mode=(S.csmsDateMode&&S.csmsDateMode[c.id])||'exp'; // 'exp':소비기한 / 'mfg':제조일자만(BRK 등)
+
+    // CSMS 품목별 합산 (모달에는 exps에 소비기한 또는 제조일자를 통일된 키 'exp'로 저장)
     const csmsMap={};
     csms.forEach(r=>{
       const n=r._name; if(!n)return;
       if(!csmsMap[n])csmsMap[n]={name:n,code:r._code,wms:0,bichuk:0,total:0,exps:[]};
       csmsMap[n].bichuk+=r._qty;
       csmsMap[n].total +=r._qty;
-      if(r._exp)csmsMap[n].exps.push({qty:r._qty,exp:r._exp});
+      const dateVal = mode==='mfg' ? r._mfg : r._exp;
+      if(dateVal) csmsMap[n].exps.push({qty:r._qty, exp:dateVal, isMfg:mode==='mfg'});
     });
 
     // result 형태로 변환 (ADU=0, DoS=999, 미회전)
@@ -1226,22 +1302,40 @@ function analyzeCsmsOnly(){
       wms:0, bichuk:Math.round(r.bichuk), total:Math.round(r.total),
       adu:0, dos:999, miss:0, fffff:0,
       grade:'➖ 미회전', imp:'미회전', impCode:'0', impPct:100,
-      score:9999, exps:r.exps,
+      score:9999, exps:r.exps, dateMode:mode,
     }));
 
-    // 부진재고: 소비기한 임박 계산
+    // 부진재고 계산
     const cDormant=[];
-    csms.forEach(r=>{
-      if(!r._exp)return;
-      let exp=String(r._exp).replace(/[^0-9]/g,'');
-      if(exp.length!==8)return;
-      exp=`${exp.slice(0,4)}-${exp.slice(4,6)}-${exp.slice(6,8)}`;
-      const daysLeft=Math.floor((new Date(exp)-todayD2)/(1000*60*60*24));
-      if(daysLeft<0)return;
-      const dgrade=daysLeft<=EXP_D?'임박':'정상';
-      if(dgrade==='임박')
-        cDormant.push({name:r._name,exp,qty:r._qty,daysLeft,adu:0,expected:0,remaining:Math.round(r._qty),dgrade});
-    });
+    if(mode==='mfg'){
+      // 제조일자 기준: 제조 후 1년(365일) 이상 경과 시 "장기보관" 표시
+      // (소비기한 임박 설정값과 별개로 1년 고정 — 제조일자만 관리하는 화주사 특성상 기준이 다름)
+      const MFG_LONGTERM_D=365;
+      csms.forEach(r=>{
+        if(!r._mfg)return;
+        let mfg=String(r._mfg).replace(/[^0-9]/g,'');
+        if(mfg.length!==8)return;
+        mfg=`${mfg.slice(0,4)}-${mfg.slice(4,6)}-${mfg.slice(6,8)}`;
+        const elapsedDays=Math.floor((todayD2-new Date(mfg))/(1000*60*60*24));
+        if(elapsedDays<0)return;
+        const dgrade=elapsedDays>=MFG_LONGTERM_D?'장기보관':'정상';
+        if(dgrade==='장기보관')
+          cDormant.push({name:r._name,exp:mfg,qty:r._qty,daysLeft:-elapsedDays,adu:0,expected:0,remaining:Math.round(r._qty),dgrade,isMfg:true});
+      });
+    } else {
+      // 소비기한 기준 (기존과 동일)
+      csms.forEach(r=>{
+        if(!r._exp)return;
+        let exp=String(r._exp).replace(/[^0-9]/g,'');
+        if(exp.length!==8)return;
+        exp=`${exp.slice(0,4)}-${exp.slice(4,6)}-${exp.slice(6,8)}`;
+        const daysLeft=Math.floor((new Date(exp)-todayD2)/(1000*60*60*24));
+        if(daysLeft<0)return;
+        const dgrade=daysLeft<=EXP_D?'임박':'정상';
+        if(dgrade==='임박')
+          cDormant.push({name:r._name,exp,qty:r._qty,daysLeft,adu:0,expected:0,remaining:Math.round(r._qty),dgrade});
+      });
+    }
 
     registerClientData(c.id, cResult, cDormant, todayStr);
     registered++;
@@ -1259,7 +1353,7 @@ function analyze(){
   const ADU_D   =parseInt(document.getElementById('set-adu').value)||14;
   const TOP_PCT =parseInt(document.getElementById('set-top').value)||30;
   const BOT_PCT =parseInt(document.getElementById('set-bot').value)||30;
-  const EXP_D   =parseInt(document.getElementById('set-exp').value)||30;
+  const EXP_D   =parseInt(document.getElementById('set-exp').value)||120;
 
   // 1. 현재고 합산 (WMS + 비축)
   // 코드 기준 매핑 테이블: 상품3PL코드 → WMS 품명 (1회 생성, 전체 재사용)
@@ -1423,7 +1517,7 @@ function analyze(){
 
   const dormFFFFF=dormList.filter(r=>r.dgrade==='FFFFF').sort((a,b)=>a.daysLeft-b.daysLeft);
   const dormNoOut=dormList.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박').sort((a,b)=>a.daysLeft-b.daysLeft);
-  const dormExp  =dormList.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박').sort((a,b)=>a.daysLeft-b.daysLeft);
+  const dormExp  =dormList.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박'||r.dgrade==='장기보관').sort((a,b)=>a.daysLeft-b.daysLeft);
   const dormZero =zero;
 
   _lastResult=result;_lastDormant=dormList;
@@ -1510,7 +1604,7 @@ function analyze(){
     const selWrn = selData.result.filter(r=>r.grade==='⚠️ 주의');
     const selFFFFF  = selData.dormant.filter(r=>r.dgrade==='FFFFF');
     const selNoOut  = selData.dormant.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박');
-    const selExp    = selData.dormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박');
+    const selExp    = selData.dormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박'||r.dgrade==='장기보관');
     const selZero   = selData.result.filter(r=>r.grade==='➖ 미회전');
     // 모달 검색용 _lastResult를 현재 선택 화주사 데이터로 동기화
     _lastResult  = selData.result;
@@ -1713,22 +1807,33 @@ function renderDormTable(tbodyId,rows,isFFFFF=false){
   const tb=document.getElementById(tbodyId);
   if(!rows.length){tb.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--text3)">해당 없음 ✅</td></tr>`;return}
   tb.innerHTML=rows.map((r,i)=>{
+    const isMfgRow=r.dgrade==='장기보관'; // 제조일자만 관리하는 화주사(BRK 등)
     const dl=r.daysLeft;
-    // ① D-day 색상 강화: D-7 이하 빨강, D-15 이하 주황, D-30 이하 노랑
-    const dlc=dl<=7?'var(--danger)':dl<=15?'#c2410c':dl<=30?'var(--warn)':'var(--text2)';
-    // ① 행 배경도 D-day 기준으로 강조
-    const rowBg=isFFFFF?'row-p':dl<=7?'row-d':dl<=15?'row-w':'';
+    let dlc,rowBg,dTag,dlText;
+    if(isMfgRow){
+      // 제조일자 기준: 1년(365일) 이상 경과 시에만 위험 강조
+      const elapsed=-dl;
+      dlc=elapsed>=365?'var(--danger)':'var(--text2)';
+      rowBg=elapsed>=365?'row-d':'';
+      dTag=elapsed>=365?`<span style="font-size:9px;background:var(--danger);color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px">경과 ${elapsed}일</span>`:'';
+      dlText=`제조후 ${elapsed}일`;
+    } else {
+      // ① D-day 색상 강화: D-7 이하 빨강, D-15 이하 주황, D-30 이하 노랑
+      dlc=dl<=7?'var(--danger)':dl<=15?'#c2410c':dl<=30?'var(--warn)':'var(--text2)';
+      rowBg=isFFFFF?'row-p':dl<=7?'row-d':dl<=15?'row-w':'';
+      dTag=dl<=7?`<span style="font-size:9px;background:var(--danger);color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px">D-${dl}</span>`
+        :dl<=15?`<span style="font-size:9px;background:#c2410c;color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px">D-${dl}</span>`:'';
+      dlText=`${dl}일`;
+    }
     const rc=r.remaining>0?'var(--danger)':'var(--ok)';
-    // D-7 이하면 남은일수 옆에 D-day 태그 표시
-    const dTag=dl<=7?`<span style="font-size:9px;background:var(--danger);color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px">D-${dl}</span>`
-      :dl<=15?`<span style="font-size:9px;background:#c2410c;color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px">D-${dl}</span>`:'';
     const badge=isFFFFF?`<span class="badge bp">출고불가</span>`
+      :isMfgRow?`<span class="badge bm">제조일자 기준</span>`
       :r.dgrade==='소진불가+임박'?`<span class="badge bd">소진불가</span> <span class="badge bw">임박</span>`
       :r.dgrade==='소진불가'?`<span class="badge bd">소진불가</span>`:`<span class="badge bw">임박</span>`;
     return`<tr class="${rowBg}">
       <td class="l">${nameCell(r.name,currentClient==='삼진')}${isFFFFF?'<span style="font-size:10px;color:var(--purple);margin-left:4px;font-weight:600">[FFFFF]</span>':''}</td>
-      <td style="text-align:center">${r.exp}</td>
-      <td style="color:${dlc};font-weight:700;text-align:center">${dl}일${dTag}</td>
+      <td style="text-align:center">${isMfgRow?'제조 '+r.exp:r.exp}</td>
+      <td style="color:${dlc};font-weight:700;text-align:center">${dlText}${dTag}</td>
       <td>${Math.round(r.qty).toLocaleString()}</td>
       <td>${r.adu.toFixed(1)}</td>
       <td>${r.expected.toLocaleString()}</td>
@@ -1742,14 +1847,17 @@ function renderZeroTable(rows){
   const tb=document.getElementById('dorm-zero-body');
   if(!rows.length){tb.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--ok)">✅ 미회전 SKU 없음</td></tr>`;return}
   tb.innerHTML=rows.map((r,i)=>{
-    const exp=r.exps&&r.exps.length?r.exps.sort((a,b)=>a.exp.localeCompare(b.exp))[0].exp:'-';
+    const isMfgRow=r.dateMode==='mfg';
+    const exp=r.exps&&r.exps.length?r.exps.slice().sort((a,b)=>a.exp.localeCompare(b.exp))[0].exp:'-';
+    const expDisp=exp==='-'?'-':(isMfgRow?'제조 '+exp:exp);
+    const noteText=isMfgRow?'제조일자 기준 관리 (소비기한 미관리)':'14일간 출고 이력 없음';
     return`<tr class="${i%2?'':''}">
       <td class="l">${nameCell(r.name,currentClient==='삼진')}</td>
       <td>${r.wms.toLocaleString()}</td>
       <td>${r.bichuk.toLocaleString()}</td>
       <td><strong>${r.total.toLocaleString()}</strong></td>
-      <td style="text-align:center">${exp}</td>
-      <td style="font-size:11px;color:var(--text3)">14일간 출고 이력 없음</td>
+      <td style="text-align:center">${expDisp}</td>
+      <td style="font-size:11px;color:var(--text3)">${noteText}</td>
     </tr>`;
   }).join('');
 }
@@ -1817,7 +1925,7 @@ function loadResult(e){
         const warn  =payload.result.filter(r=>r.grade==='⚠️ 주의');
         const dormFFFFF=_lastDormant.filter(r=>r.dgrade==='FFFFF');
         const dormNoOut=_lastDormant.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박');
-        const dormExp  =_lastDormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박');
+        const dormExp  =_lastDormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박'||r.dgrade==='장기보관');
         const dormZero =payload.result.filter(r=>r.grade==='➖ 미회전');
         renderHome(payload.result,danger,warn);
         renderRisk(payload.result,danger,warn);
@@ -1873,6 +1981,7 @@ function showLotModal(name){
   const r=_lastResult.find(x=>x.name===name);
   if(!r){ return; }
   const exps=(r.exps||[]).filter(e=>e.exp).slice().sort((a,b)=>a.exp.localeCompare(b.exp));
+  const isMfgMode = r.dateMode==='mfg'; // BRK처럼 제조일자만 관리하는 화주사
 
   document.getElementById('lot-name').textContent=name;
   const c=CLIENTS.find(x=>x.id===currentClient);
@@ -1880,12 +1989,28 @@ function showLotModal(name){
   document.getElementById('lot-total').innerHTML=`${r.total.toLocaleString()} <span>BOX</span>`;
   document.getElementById('lot-count').innerHTML=`${exps.length} <span>건</span>`;
 
+  // 섹션 라벨도 모드에 맞게 변경 (소비기한 빠른 순 ↔ 제조일자 오래된 순)
+  const subLblEl=document.querySelector('.lot-sub-lbl');
+  if(subLblEl) subLblEl.textContent = isMfgMode ? '제조일자 오래된 순 (소비기한 미관리 품목)' : '소비기한 빠른 순';
+
   const todayD=new Date(todayStr);
   const listEl=document.getElementById('lot-list');
   if(!exps.length){
-    listEl.innerHTML=`<div class="lot-empty">등록된 소비기한 정보가 없습니다</div>`;
+    listEl.innerHTML=`<div class="lot-empty">등록된 ${isMfgMode?'제조일자':'소비기한'} 정보가 없습니다</div>`;
   } else {
     listEl.innerHTML=exps.map(e=>{
+      if(isMfgMode){
+        // 제조일자 기준: 1년(365일) 이상 경과 시에만 강조
+        const elapsed=Math.floor((todayD-new Date(e.exp))/(1000*60*60*24));
+        const urgent=elapsed>=365;
+        return `<div class="lot-row ${urgent?'urgent':''}">
+          <div>
+            <div class="lot-row-date">제조 ${e.exp}</div>
+            <div class="lot-row-d">제조 후 ${elapsed}일 경과</div>
+          </div>
+          <div class="lot-row-qty">${Math.round(e.qty).toLocaleString()} BOX</div>
+        </div>`;
+      }
       const daysLeft=Math.floor((new Date(e.exp)-todayD)/(1000*60*60*24));
       const urgent=daysLeft<=30;
       return `<div class="lot-row ${urgent?'urgent':''}">
