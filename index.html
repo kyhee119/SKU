@@ -258,14 +258,12 @@ tr:hover td{background:#fafbff}
 /* ── 화주사 목록 ─────────────────────────────────────── */
 .sl-section-lbl{font-size:10px;font-weight:600;color:var(--text3);
   padding:14px 16px 4px;letter-spacing:.05em;text-transform:uppercase}
-.sl-body{flex:1;overflow-y:auto;padding-bottom:8px}
+.sl-body{flex:1;overflow-y:auto;padding-bottom:8px;padding-top:4px}
 .sl-item{display:flex;align-items:center;gap:10px;padding:9px 16px;
   cursor:pointer;transition:.15s;border-radius:0;position:relative}
 .sl-item:hover{background:var(--bg)}
 .sl-item.on{background:#eff6ff}
 .sl-item.on .sl-item-name{color:var(--accent);font-weight:600}
-.sl-item-ico{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;
-  justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
 .sl-item-name{font-size:13px;color:var(--text2)}
 .sl-item-badge{margin-left:auto;font-size:10px;padding:1px 7px;border-radius:10px;
   background:var(--danger);color:#fff;font-weight:600}
@@ -870,25 +868,39 @@ function closeSlide(){
 // 슬라이드 메뉴 화주사 목록 렌더링
 function renderSlideMenu(){
   const body = document.getElementById('sl-body');
-  body.innerHTML = '<div class="sl-section-lbl">화주사</div>';
-  CLIENTS.forEach(c => {
-    const data = clientData[c.id];
-    let badge = '';
-    if (data) {
-      const danger = data.result.filter(r=>r.grade.includes('위험')).length;
-      const warn   = data.result.filter(r=>r.grade==='⚠️ 주의').length;
-      if (danger>0)      badge = `<span class="sl-item-badge">${danger}</span>`;
-      else if (warn>0)   badge = `<span class="sl-item-badge warn">${warn}</span>`;
-      else               badge = `<span class="sl-item-badge ok">✅</span>`;
-    }
-    const isOn = currentClient === c.id;
-    body.innerHTML += `
-      <div class="sl-item${isOn?' on':''}" onclick="selectClient('${c.id}')">
-        <div class="sl-item-ico" style="background:${c.color}">${c.name.slice(0,2)}</div>
-        <span class="sl-item-name">${c.name}</span>
-        ${badge}
-      </div>`;
+
+  // 유형별 그룹 정의 (그룹명 글씨 색상으로 구분)
+  const GROUPS = [
+    { type:'full', label:'종합관리 (SDMS+CSMS)', color:'#0f52ba' },
+    { type:'csms', label:'비축재고 (CSMS)',       color:'#16a34a' },
+    { type:'sdms', label:'현재고 (SDMS) 3PL',     color:'#d97706' },
+  ];
+
+  let html = '';
+  GROUPS.forEach(g => {
+    const list = CLIENTS.filter(c => c.type === g.type);
+    if (!list.length) return;
+    html += `<div class="sl-section-lbl" style="color:${g.color}">${g.label}</div>`;
+    list.forEach(c => {
+      const data = clientData[c.id];
+      let badge = '';
+      if (data) {
+        const danger = data.result.filter(r=>r.grade.includes('위험')).length;
+        const warn   = data.result.filter(r=>r.grade==='⚠️ 주의').length;
+        if (danger>0)      badge = `<span class="sl-item-badge">${danger}</span>`;
+        else if (warn>0)   badge = `<span class="sl-item-badge warn">${warn}</span>`;
+        else               badge = `<span class="sl-item-badge ok">✅</span>`;
+      }
+      const isOn = currentClient === c.id;
+      html += `
+        <div class="sl-item${isOn?' on':''}" onclick="selectClient('${c.id}')">
+          <span class="sl-item-name">${c.name}</span>
+          ${badge}
+        </div>`;
+    });
   });
+
+  body.innerHTML = html;
 }
 
 // 화주사 선택
