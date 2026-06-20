@@ -315,6 +315,7 @@ tr:hover td{background:#fafbff}
 .lot-row-date{font-size:12px;font-weight:600}
 .lot-row.urgent .lot-row-date,.lot-row.urgent .lot-row-d{color:var(--danger)}
 .lot-row-d{font-size:10px;color:var(--text3)}
+.lot-row-src{font-size:9px;color:var(--text3);margin-top:1px}
 .lot-row-qty{font-size:13px;font-weight:600}
 .lot-row.urgent .lot-row-qty{color:var(--danger)}
 .lot-empty{text-align:center;padding:30px 10px;color:var(--text3);font-size:12px}
@@ -1397,6 +1398,7 @@ function analyze(){
       if(!n)return;
       if(!stockMap[n])stockMap[n]={wms:0,bichuk:0,code:r._code||'',exps:[]};
       stockMap[n].bichuk+=q;
+      if(r._exp)stockMap[n].exps.push({qty:q,exp:r._exp,isCsms:true});
     });
   }
 
@@ -1992,8 +1994,17 @@ function showLotModal(name){
   if(!_lastResult) return;
   const r=_lastResult.find(x=>x.name===name);
   if(!r){ return; }
-  const exps=(r.exps||[]).filter(e=>e.exp).slice().sort((a,b)=>a.exp.localeCompare(b.exp));
   const isMfgMode = r.dateMode==='mfg'; // BRK처럼 제조일자만 관리하는 화주사
+
+  // 같은 날짜(소비기한/제조일자) 로트는 합산, SDMS·CSMS 출처별 수량은 따로 집계
+  const dateMap={};
+  (r.exps||[]).filter(e=>e.exp).forEach(e=>{
+    if(!dateMap[e.exp]) dateMap[e.exp]={exp:e.exp, qty:0, sdms:0, csms:0};
+    dateMap[e.exp].qty += e.qty;
+    if(e.isCsms) dateMap[e.exp].csms += e.qty;
+    else         dateMap[e.exp].sdms += e.qty;
+  });
+  const exps=Object.values(dateMap).sort((a,b)=>a.exp.localeCompare(b.exp));
 
   document.getElementById('lot-name').textContent=name;
   const c=CLIENTS.find(x=>x.id===currentClient);
@@ -2011,6 +2022,12 @@ function showLotModal(name){
     listEl.innerHTML=`<div class="lot-empty">등록된 ${isMfgMode?'제조일자':'소비기한'} 정보가 없습니다</div>`;
   } else {
     listEl.innerHTML=exps.map(e=>{
+      // SDMS·CSMS 둘 다 있으면 출처별 수량을 작은 글씨로 같이 표시
+      const srcParts=[];
+      if(e.sdms>0) srcParts.push(`SDMS ${Math.round(e.sdms).toLocaleString()}`);
+      if(e.csms>0) srcParts.push(`CSMS ${Math.round(e.csms).toLocaleString()}`);
+      const srcLine = srcParts.length>1 ? `<div class="lot-row-src">${srcParts.join(' · ')}</div>` : '';
+
       if(isMfgMode){
         // 제조일자 기준: 1년(365일) 이상 경과 시에만 강조
         const elapsed=Math.floor((todayD-new Date(e.exp))/(1000*60*60*24));
@@ -2019,6 +2036,7 @@ function showLotModal(name){
           <div>
             <div class="lot-row-date">제조 ${e.exp}</div>
             <div class="lot-row-d">제조 후 ${elapsed}일 경과</div>
+            ${srcLine}
           </div>
           <div class="lot-row-qty">${Math.round(e.qty).toLocaleString()} BOX</div>
         </div>`;
@@ -2029,6 +2047,7 @@ function showLotModal(name){
         <div>
           <div class="lot-row-date">${e.exp}</div>
           <div class="lot-row-d">D-${daysLeft}</div>
+          ${srcLine}
         </div>
         <div class="lot-row-qty">${Math.round(e.qty).toLocaleString()} BOX</div>
       </div>`;
