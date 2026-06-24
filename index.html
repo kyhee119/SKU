@@ -454,8 +454,8 @@ tr:hover td{background:#fafbff}
         <thead><tr>
           <th class="l" style="width:40px">순위</th>
           <th class="l" style="min-width:160px">품명</th>
-          <th style="width:70px">WMS</th>
-          <th style="width:70px">비축</th>
+          <th style="width:70px">SDMS</th>
+          <th style="width:70px">CSMS</th>
           <th style="width:70px">총재고</th>
           <th style="width:60px">FFFFF<br><span style="font-size:9px;font-weight:400">참고</span></th>
           <th style="width:100px">ADU</th>
@@ -521,7 +521,7 @@ tr:hover td{background:#fafbff}
     <div class="tbl-wrap"><table>
       <thead><tr>
         <th class="l" style="width:24%">품명</th>
-        <th>WMS</th><th>비축</th><th>총재고</th>
+        <th>SDMS</th><th>CSMS</th><th>총재고</th>
         <th style="width:60px">ADU</th><th style="width:130px">DoS</th>
         <th>당일미출</th><th>중요도</th>
         <th class="score-col" style="display:none">점수</th>
@@ -550,7 +550,7 @@ tr:hover td{background:#fafbff}
     <div class="tbl-wrap"><table>
       <thead><tr>
         <th class="l" style="width:24%">품명</th>
-        <th>WMS</th><th>비축</th><th>총재고</th>
+        <th>SDMS</th><th>CSMS</th><th>총재고</th>
         <th style="width:60px">ADU</th><th style="width:130px">DoS</th>
         <th>당일미출</th><th>중요도</th>
         <th class="score-col" style="display:none">점수</th>
@@ -619,7 +619,7 @@ tr:hover td{background:#fafbff}
     <!-- 미회전 (ADU=0) — 저회전과 완전 분리 -->
     <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--text3)"></div>🔇 미회전 SKU (14일간 출고 이력 없음)</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th class="l">품명</th><th>WMS</th><th>비축</th><th>총재고</th><th>소비기한</th><th>비고</th></tr></thead>
+      <thead><tr><th class="l">품명</th><th>SDMS</th><th>CSMS</th><th>총재고</th><th>소비기한</th><th>비고</th></tr></thead>
       <tbody id="dorm-zero-body"></tbody>
     </table></div>
 
@@ -653,6 +653,7 @@ tr:hover td{background:#fafbff}
           <option value="푸드랩">푸드랩스</option>
           <option value="푸드웰">푸드웰</option>
           <option value="푸르온">푸르온</option>
+          <option value="푸르온원료">푸르온원료</option>
           <option value="아웃백">아웃백</option>
         </select>
       </div>
@@ -839,6 +840,7 @@ const CLIENTS = [
   { id:'푸드랩', name:'푸드랩스',          color:'#16a34a', type:'csms', sdmsName:null },
   { id:'푸드웰', name:'푸드웰',            color:'#0891b2', type:'csms', sdmsName:null },
   { id:'푸르온', name:'푸르온',            color:'#059669', type:'csms', sdmsName:null },
+  { id:'푸르온원료', name:'푸르온원료',         color:'#0d9488', type:'csms', sdmsName:null },
   { id:'아웃백', name:'아웃백',            color:'#dc2626', type:'csms', sdmsName:null },
   { id:'미도',   name:'미도식품',          color:'#9333ea', type:'sdms', sdmsName:'[3PL]미도식품' },
   { id:'파리크', name:'파리크라상',        color:'#f59e0b', type:'sdms', sdmsName:'[3PL]파리크라상' },
@@ -873,7 +875,7 @@ function renderSlideMenu(){
   // 유형별 그룹 정의 (그룹명 글씨 색상으로 구분)
   const GROUPS = [
     { type:'full', label:'종합관리 (SDMS+CSMS)', color:'#0f52ba' },
-    { type:'csms', label:'비축재고 (CSMS)',       color:'#16a34a' },
+    { type:'csms', label:'CSMS (비축재고)',       color:'#16a34a' },
     { type:'sdms', label:'현재고 (SDMS) 3PL',     color:'#d97706' },
   ];
 
@@ -1961,7 +1963,7 @@ function exportExcel(){
   if(!_lastResult){alert('먼저 분석을 실행하세요');return}
   ensureXlsx(()=>{
     const wb=XLSX.utils.book_new();
-    const hdrs=['상품코드','품명','WMS재고','비축재고','총재고','FFFFF','ADU','DoS','중요도','상태'];
+    const hdrs=['상품코드','품명','SDMS재고','CSMS재고','총재고','FFFFF','ADU','DoS','중요도','상태'];
     const rows=[hdrs,..._lastResult
       .filter(r=>r.grade!=='➖ 미회전')
       .sort((a,b)=>{ const o={'🚨 즉시위험':0,'🔴 위험':1,'⚠️ 주의':2,'✅ 정상':3};return(o[a.grade]||9)-(o[b.grade]||9)})
@@ -2190,7 +2192,7 @@ function generateExcel() {
     XLSX.utils.book_append_sheet(wb, ws2, '② ADU TOP SKU');
 
     // ── [3] 위험 SKU 시트 ────────────────────────────────
-    const riskHeaders = ['품명','WMS재고','비축재고','총재고','ADU','DoS','중요도','주력여부','상태'];
+    const riskHeaders = ['품명','SDMS재고','CSMS재고','총재고','ADU','DoS','중요도','주력여부','상태'];
     const riskRows = d.danger.sort((a,b)=>a.score-b.score).map(r => [
       r.name, r.wms, r.bichuk, r.total,
       r.adu.toFixed(1), r.dos<999?r.dos.toFixed(1)+'일':'-',
@@ -2215,7 +2217,7 @@ function generateExcel() {
     XLSX.utils.book_append_sheet(wb, ws3, '③ 위험 SKU');
 
     // ── [4] 미회전 SKU 시트 ─────────────────────────────
-    const zeroHeaders = ['품명','WMS재고','비축재고','총재고','비고'];
+    const zeroHeaders = ['품명','SDMS재고','CSMS재고','총재고','비고'];
     const zeroRows = d.zero.filter(r=>r.total>0).map(r => [
       r.name, r.wms, r.bichuk, r.total, '14일간 출고 이력 없음'
     ]);
@@ -2714,8 +2716,8 @@ function _buildPPT(d) {
     drawSectionHdr(s5, LX, HDR_Y, HALF_W, `🔇 미회전 SKU  (${zeroFull.length}개)`, C.gray);
     const zL_Hdr = [
       hdrCell('품명',   '4A5568', 'left'),
-      hdrCell('WMS',    '4A5568'),
-      hdrCell('비축',   '4A5568'),
+      hdrCell('SDMS',    '4A5568'),
+      hdrCell('CSMS',   '4A5568'),
       hdrCell('총재고', '4A5568'),
     ];
     const zL_Data = zeroFull.slice(0, Z_MAX).map((r,i) => {
