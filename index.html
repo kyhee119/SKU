@@ -1401,7 +1401,7 @@ function analyze(){
       if(!n)return;
       if(!stockMap[n])stockMap[n]={wms:0,bichuk:0,code:r._code||'',exps:[]};
       stockMap[n].bichuk+=q;
-      if(r._exp)stockMap[n].exps.push({qty:q,exp:r._exp,isCsms:true});
+      if(r._exp)stockMap[n].exps.push({qty:q,exp:r._exp,isCsms:true,bl:r._bl||''});
     });
   }
 
