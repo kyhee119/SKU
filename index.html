@@ -1166,13 +1166,17 @@ function parseBichuk(wb){
       _name: String(r[nk]||'').trim(),
       _qty:  parseFloat(r['재고수량'])||0,
       _exp:  normExpDate(r['소비일자']),
-      _mfg:  normExpDate(r['제조일자']), // 소비일자가 없는 화주사(BRK 등)는 제조일자 기준 관리
+      _mfg:  normExpDate(r['제조일자']),
+      _bl:   (()=>{ const k=Object.keys(r).find(k=>k.includes('B/L')||k.includes('BL')); return k?String(r[k]||'').trim():''; })(), // 비고(특이사항)
     };
   }).filter(r=>r._name);
-  // 이 업로드가 소비일자 기반인지 제조일자 기반인지 판단 (전체 행 중 소비일자 있는 비율로 자동 감지)
+  // 날짜모드 자동 감지
+  // 소비일자 전무 + 제조일자 존재 → 'mfg'
+  // 소비일자/제조일자 혼재 → 'mixed' (행마다 개별 판단)
+  // 그 외 → 'exp'
   const expCount=parsed.filter(r=>r._exp).length;
   const mfgCount=parsed.filter(r=>r._mfg).length;
-  const dateMode=(expCount===0 && mfgCount>0) ? 'mfg' : 'exp'; // 소비일자 전무 + 제조일자 존재 → 제조일자 모드
+  const dateMode=(expCount===0&&mfgCount>0)?'mfg':(expCount>0&&mfgCount>0)?'mixed':'exp';
   // CSMS 화주사 선택값 확인
   const csmsSel=document.getElementById('csms-client-sel');
   const csmsClient=csmsSel?csmsSel.value:'';
@@ -1298,20 +1302,23 @@ function analyzeCsmsOnly(){
     const csms = S.csmsData[c.id];
     if(!csms||!csms.length) return;
 
-    const mode=(S.csmsDateMode&&S.csmsDateMode[c.id])||'exp'; // 'exp':소비기한 / 'mfg':제조일자만(BRK 등)
+    const mode=(S.csmsDateMode&&S.csmsDateMode[c.id])||'exp';
+    const MFG_LONGTERM_D=365;
 
-    // CSMS 품목별 합산 (모달에는 exps에 소비기한 또는 제조일자를 통일된 키 'exp'로 저장)
+    // CSMS 품목별 합산 — 로트마다 소비기한/제조일자 개별 판단 (mixed 모드 포함)
     const csmsMap={};
     csms.forEach(r=>{
       const n=r._name; if(!n)return;
       if(!csmsMap[n])csmsMap[n]={name:n,code:r._code,wms:0,bichuk:0,total:0,exps:[]};
       csmsMap[n].bichuk+=r._qty;
       csmsMap[n].total +=r._qty;
-      const dateVal = mode==='mfg' ? r._mfg : r._exp;
-      if(dateVal) csmsMap[n].exps.push({qty:r._qty, exp:dateVal, isMfg:mode==='mfg'});
+      // 로트별 날짜 결정: 소비일자 우선, 없으면 제조일자
+      const isMfgRow=!r._exp&&!!r._mfg;
+      const dateVal=isMfgRow?r._mfg:r._exp;
+      if(dateVal) csmsMap[n].exps.push({qty:r._qty,exp:dateVal,isMfg:isMfgRow,bl:r._bl||''});
     });
 
-    // result 형태로 변환 (ADU=0, DoS=999, 미회전)
+    // result 형태로 변환
     const cResult=Object.values(csmsMap).map(r=>({
       code:r.code, name:r.name,
       wms:0, bichuk:Math.round(r.bichuk), total:Math.round(r.total),
@@ -1320,37 +1327,31 @@ function analyzeCsmsOnly(){
       score:9999, exps:r.exps, dateMode:mode,
     }));
 
-    // 부진재고 계산
+    // 부진재고 계산 — 로트별 분기 (mixed/mfg/exp 모두 처리)
     const cDormant=[];
-    if(mode==='mfg'){
-      // 제조일자 기준: 제조 후 1년(365일) 이상 경과 시 "장기보관" 표시
-      // (소비기한 임박 설정값과 별개로 1년 고정 — 제조일자만 관리하는 화주사 특성상 기준이 다름)
-      const MFG_LONGTERM_D=365;
-      csms.forEach(r=>{
-        if(!r._mfg)return;
+    csms.forEach(r=>{
+      const isMfgRow=!r._exp&&!!r._mfg;
+      if(isMfgRow){
+        // 제조일자 기준: 1년 이상 경과 시 장기보관
         let mfg=String(r._mfg).replace(/[^0-9]/g,'');
         if(mfg.length!==8)return;
         mfg=`${mfg.slice(0,4)}-${mfg.slice(4,6)}-${mfg.slice(6,8)}`;
         const elapsedDays=Math.floor((todayD2-new Date(mfg))/(1000*60*60*24));
         if(elapsedDays<0)return;
-        const dgrade=elapsedDays>=MFG_LONGTERM_D?'장기보관':'정상';
-        if(dgrade==='장기보관')
-          cDormant.push({name:r._name,exp:mfg,qty:r._qty,daysLeft:-elapsedDays,adu:0,expected:0,remaining:Math.round(r._qty),dgrade,isMfg:true});
-      });
-    } else {
-      // 소비기한 기준 (기존과 동일)
-      csms.forEach(r=>{
+        if(elapsedDays>=MFG_LONGTERM_D)
+          cDormant.push({name:r._name,exp:mfg,qty:r._qty,daysLeft:-elapsedDays,adu:0,expected:0,remaining:Math.round(r._qty),dgrade:'장기보관',isMfg:true,bl:r._bl||''});
+      } else {
+        // 소비기한 기준: 설정일수 이내 임박
         if(!r._exp)return;
         let exp=String(r._exp).replace(/[^0-9]/g,'');
         if(exp.length!==8)return;
         exp=`${exp.slice(0,4)}-${exp.slice(4,6)}-${exp.slice(6,8)}`;
         const daysLeft=Math.floor((new Date(exp)-todayD2)/(1000*60*60*24));
         if(daysLeft<0)return;
-        const dgrade=daysLeft<=EXP_D?'임박':'정상';
-        if(dgrade==='임박')
-          cDormant.push({name:r._name,exp,qty:r._qty,daysLeft,adu:0,expected:0,remaining:Math.round(r._qty),dgrade});
-      });
-    }
+        if(daysLeft<=EXP_D)
+          cDormant.push({name:r._name,exp,qty:r._qty,daysLeft,adu:0,expected:0,remaining:Math.round(r._qty),dgrade:'임박',bl:r._bl||''});
+      }
+    });
 
     registerClientData(c.id, cResult, cDormant, todayStr);
     registered++;
@@ -1996,17 +1997,10 @@ function showLotModal(name){
   if(!_lastResult) return;
   const r=_lastResult.find(x=>x.name===name);
   if(!r){ return; }
-  const isMfgMode = r.dateMode==='mfg'; // BRK처럼 제조일자만 관리하는 화주사
+  const isMfgMode = r.dateMode==='mfg';
 
-  // 같은 날짜(소비기한/제조일자) 로트는 합산, SDMS·CSMS 출처별 수량은 따로 집계
-  const dateMap={};
-  (r.exps||[]).filter(e=>e.exp).forEach(e=>{
-    if(!dateMap[e.exp]) dateMap[e.exp]={exp:e.exp, qty:0, sdms:0, csms:0};
-    dateMap[e.exp].qty += e.qty;
-    if(e.isCsms) dateMap[e.exp].csms += e.qty;
-    else         dateMap[e.exp].sdms += e.qty;
-  });
-  const exps=Object.values(dateMap).sort((a,b)=>a.exp.localeCompare(b.exp));
+  // 로트 그대로 표시 (날짜별 합산 없음 — 같은 날짜라도 비고/수량이 다를 수 있음)
+  const exps=(r.exps||[]).filter(e=>e.exp).slice().sort((a,b)=>a.exp.localeCompare(b.exp));
 
   document.getElementById('lot-name').textContent=name;
   const c=CLIENTS.find(x=>x.id===currentClient);
@@ -2016,7 +2010,8 @@ function showLotModal(name){
 
   // 섹션 라벨도 모드에 맞게 변경 (소비기한 빠른 순 ↔ 제조일자 오래된 순)
   const subLblEl=document.querySelector('.lot-sub-lbl');
-  if(subLblEl) subLblEl.textContent = isMfgMode ? '제조일자 오래된 순 (소비기한 미관리 품목)' : '소비기한 빠른 순';
+  // mixed 모드는 소비기한 기준으로 정렬하되 라벨에 안내 추가
+  if(subLblEl) subLblEl.textContent = isMfgMode ? '제조일자 오래된 순' : r.dateMode==='mixed' ? '소비기한 빠른 순 (일부 제조일자 기준)' : '소비기한 빠른 순';
 
   const todayD=new Date(todayStr);
   const listEl=document.getElementById('lot-list');
@@ -2024,21 +2019,21 @@ function showLotModal(name){
     listEl.innerHTML=`<div class="lot-empty">등록된 ${isMfgMode?'제조일자':'소비기한'} 정보가 없습니다</div>`;
   } else {
     listEl.innerHTML=exps.map(e=>{
-      // SDMS·CSMS 둘 다 있으면 출처별 수량을 작은 글씨로 같이 표시
-      const srcParts=[];
-      if(e.sdms>0) srcParts.push(`SDMS ${Math.round(e.sdms).toLocaleString()}`);
-      if(e.csms>0) srcParts.push(`CSMS ${Math.round(e.csms).toLocaleString()}`);
-      const srcLine = srcParts.length>1 ? `<div class="lot-row-src">${srcParts.join(' · ')}</div>` : '';
+      // 출처 표시 (삼진식품처럼 SDMS+CSMS 혼재 시 표시)
+      const srcLine=e.isCsms===true?`<div class="lot-row-src">CSMS(비축)</div>`
+                   :e.isCsms===false?`<div class="lot-row-src">SDMS</div>`:'';
+      // 비고(B/L No.) 표시
+      const blLine=e.bl?`<div class="lot-row-src">비고: ${e.bl}</div>`:'';
 
-      if(isMfgMode){
-        // 제조일자 기준: 1년(365일) 이상 경과 시에만 강조
+      // 로트별 날짜 모드 분기 (isMfg가 있으면 제조일자, 없으면 소비기한)
+      if(e.isMfg){
         const elapsed=Math.floor((todayD-new Date(e.exp))/(1000*60*60*24));
         const urgent=elapsed>=365;
         return `<div class="lot-row ${urgent?'urgent':''}">
           <div>
             <div class="lot-row-date">제조 ${e.exp}</div>
             <div class="lot-row-d">제조 후 ${elapsed}일 경과</div>
-            ${srcLine}
+            ${srcLine}${blLine}
           </div>
           <div class="lot-row-qty">${Math.round(e.qty).toLocaleString()} BOX</div>
         </div>`;
@@ -2049,7 +2044,7 @@ function showLotModal(name){
         <div>
           <div class="lot-row-date">${e.exp}</div>
           <div class="lot-row-d">D-${daysLeft}</div>
-          ${srcLine}
+          ${srcLine}${blLine}
         </div>
         <div class="lot-row-qty">${Math.round(e.qty).toLocaleString()} BOX</div>
       </div>`;
