@@ -114,6 +114,9 @@ tr:hover td{background:#fafbff}
 .bw{background:#fef3c7;color:var(--warn)}
 .bo{background:#dcfce7;color:var(--ok)}
 .bp{background:#ede9fe;color:var(--purple)}
+.bg-spc{background:#dbeafe;color:#1d4ed8}
+.bg-hub{background:#fef3c7;color:#b45309}
+.bg-ehan{background:#dcfce7;color:#15803d}
 .bm{background:#f1f5f9;color:var(--text3)}
 
 /* ── 중요도 ─────────────────────────────────────── */
@@ -396,6 +399,7 @@ tr:hover td{background:#fafbff}
   <div class="tab on"  id="tab-home"    onclick="switchTab('home')">🏠 홈</div>
   <div class="tab"     id="tab-risk"    onclick="switchTab('risk')">🚨 위험재고</div>
   <div class="tab"     id="tab-dormant" onclick="switchTab('dormant')">📦 부진재고</div>
+  <div class="tab"     id="tab-location" onclick="switchTab('location')">📍 로케이션</div>
 </div>
 
 <!-- ═══ 홈 ═══ -->
@@ -631,6 +635,92 @@ tr:hover td{background:#fafbff}
 </div>
 </div>
 
+<!-- ═══ 로케이션 ═══ -->
+<div id="pane-location" class="tab-pane">
+<div class="content">
+  <div id="loc-empty" class="empty"><div class="empty-icon">📍</div><div>로케이션 데이터를 업로드하고 분석을 실행하세요</div></div>
+  <div id="loc-body" style="display:none">
+
+    <!-- 저장구역별 KPI -->
+    <div class="cards" id="loc-cards">
+      <div class="card c-accent"><div class="card-lbl">전체 SKU</div><div class="card-val" id="lc-total">-</div><div class="card-sub">현재 화주사 기준</div></div>
+      <div class="card c-purple"><div class="card-lbl">SPC</div><div class="card-val" id="lc-spc">-</div><div class="card-sub">저장구역 100001</div></div>
+      <div class="card c-warn"><div class="card-lbl">허브로지스</div><div class="card-val" id="lc-hub">-</div><div class="card-sub">저장구역 100002</div></div>
+      <div class="card c-ok"><div class="card-lbl">이한로지스</div><div class="card-val" id="lc-ehan">-</div><div class="card-sub">저장구역 20001</div></div>
+    </div>
+
+    <!-- 검색: 품명 + 소비기한 각각 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:160px;max-width:280px">
+        <input type="text" id="loc-search" placeholder="🔍 품명 검색..."
+          oninput="locSearch(this.value)"
+          style="width:100%;padding:7px 32px 7px 12px;border:1px solid var(--border);
+            border-radius:7px;font-size:12px;font-family:var(--font);
+            background:#fff;color:var(--text);outline:none">
+        <button onclick="document.getElementById('loc-search').value='';locSearch('')"
+          style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
+            border:none;background:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0">✕</button>
+      </div>
+      <div style="position:relative;flex:1;min-width:160px;max-width:200px">
+        <input type="text" id="loc-search-exp" placeholder="📅 소비기한 검색 (예: 2027-04)..."
+          oninput="locSearchExp(this.value)"
+          style="width:100%;padding:7px 32px 7px 12px;border:1px solid var(--border);
+            border-radius:7px;font-size:12px;font-family:var(--font);
+            background:#fff;color:var(--text);outline:none">
+        <button onclick="document.getElementById('loc-search-exp').value='';locSearchExp('')"
+          style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
+            border:none;background:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0">✕</button>
+      </div>
+      <span id="loc-search-count" style="font-size:11px;color:var(--text3)"></span>
+    </div>
+
+    <!-- 저장구역 필터 -->
+    <div class="filter-row">
+      <span class="filter-lbl">저장구역:</span>
+      <button class="fbtn on" onclick="locFilter('all',this)">전체</button>
+      <button class="fbtn" onclick="locFilter('SPC',this)">SPC</button>
+      <button class="fbtn" onclick="locFilter('허브로지스',this)">허브로지스</button>
+      <button class="fbtn" onclick="locFilter('이한로지스',this)">이한로지스</button>
+    </div>
+
+    <!-- 소비기한 기준 -->
+    <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--accent)"></div>📅 소비기한 기준</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th class="l" style="min-width:180px">품명</th>
+          <th style="width:90px">저장구역</th>
+          <th style="width:90px">로케이션</th>
+          <th style="width:100px">소비기한</th>
+          <th style="width:80px">수량</th>
+          <th class="l" style="width:110px">비고</th>
+        </tr></thead>
+        <tbody id="loc-body-tbl"></tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 제조일자 기준 (소비기한 미관리 품목, 예: 쌀) -->
+    <div class="sec-title" style="margin-bottom:10px"><div class="sec-dot" style="background:var(--purple)"></div>🏭 제조일자 기준 <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px">소비기한 미관리 품목</span></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th class="l" style="min-width:180px">품명</th>
+          <th style="width:90px">저장구역</th>
+          <th style="width:90px">로케이션</th>
+          <th style="width:100px">제조일자</th>
+          <th style="width:80px">수량</th>
+          <th class="l" style="width:110px">비고</th>
+        </tr></thead>
+        <tbody id="loc-body-tbl-mfg"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</div>
+
 <!-- ═══ 데이터 입력 ═══ -->
 <div id="pane-upload" class="tab-pane">
 <div class="content">
@@ -710,8 +800,22 @@ tr:hover td{background:#fafbff}
     </div>
   </div>
   <div class="analyze-bar">
-    <div class="analyze-txt">파일 업로드 후 분석을 실행하면 모든 탭이 자동 갱신됩니다.</div>
+    <div class="analyze-txt">파일 업로드 후 분석을 실행하면 모든 탭이 자동 갱신됩니다. (로케이션 파일이 있으면 함께 분석됩니다)</div>
     <button class="btn btn-primary" onclick="analyze()">🔍 분석 실행</button>
+  </div>
+
+  <!-- 로케이션 데이터 (저장구역/C-T No.) — 전체 화주사 공통, 매일 갱신 -->
+  <div class="upload-card full" style="border-color:rgba(124,58,237,.3);margin-top:16px">
+    <div class="upload-title">📍 재고 로케이션 (저장구역·로케이션)</div>
+    <div class="upload-sub">매일 덮어씌우기 · 전체 화주사 포함 파일 1개 업로드 · 저장구역/C-T No. 자동 인식</div>
+    <div class="upload-zone" id="uz-loc" ondragover="dov(event,'uz-loc')" ondragleave="dlv('uz-loc')" ondrop="dop(event,'loc')">
+      <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'loc')">
+      <div class="upload-icon">📍</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
+    </div>
+    <div class="upload-status" id="us-loc"></div>
+    <div style="margin-top:10px">
+      <button class="btn btn-outline btn-sm" onclick="analyzeLocation()">🔍 로케이션만 먼저 분석</button>
+    </div>
   </div>
 </div>
 </div>
@@ -959,6 +1063,12 @@ function selectClient(id){
     renderDormant(dormFFFFF, dormNoOut, dormExp, dormZero);
     renderMsg(danger, warn);
     document.getElementById('date-lbl').textContent = `기준일: ${d.savedAt}`;
+    // 로케이션 데이터도 같이 갱신 (있으면 표시, 없으면 빈 상태)
+    if(S.locationData && S.locationData[id]) renderLocation(S.locationData[id]);
+    else{
+      document.getElementById('loc-empty').style.display='block';
+      document.getElementById('loc-body').style.display='none';
+    }
     switchTab('home');
   } else {
     // 데이터 없음 → 빈 화면
@@ -971,6 +1081,12 @@ function selectClient(id){
     document.getElementById('home-empty').style.display='block';
     document.getElementById('risk-empty').style.display='block';
     document.getElementById('dorm-empty').style.display='block';
+    // 로케이션 데이터도 같이 갱신
+    if(S.locationData && S.locationData[id]) renderLocation(S.locationData[id]);
+    else{
+      document.getElementById('loc-empty').style.display='block';
+      document.getElementById('loc-body').style.display='none';
+    }
     switchTab('home');
   }
 }
@@ -994,7 +1110,7 @@ const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.
 document.getElementById('date-lbl').textContent = `기준일: ${todayStr}`;
 function pad(n){return String(n).padStart(2,'0')}
 
-const S = {stock:null, csmsData:{}, order:null, pick:[], stock_all:null};
+const S = {stock:null, csmsData:{}, order:null, pick:[], stock_all:null, location:null};
 let _lastResult=null, _lastDormant=null;
 let _cacheHome=[], _cacheDanger=[], _cacheWarn=[];
 let _homeImpF='all', _homeStateF='all', _homeSortBy='adu', _homeSearchQ='';
@@ -1002,9 +1118,9 @@ let _scoreVisible=false;
 
 // ── 탭 전환 ────────────────────────────────────────────────────
 function switchTab(name){
-  // 탭 버튼은 home/risk/dormant 3개만 (upload/settings는 슬라이드 메뉴)
+  // 탭 버튼은 home/risk/dormant/location 4개 (upload/settings는 슬라이드 메뉴)
   document.querySelectorAll('.tab').forEach((t,i)=>
-    t.classList.toggle('on',['home','risk','dormant'][i]===name));
+    t.classList.toggle('on',['home','risk','dormant','location'][i]===name));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('on'));
   document.getElementById('pane-'+name).classList.add('on');
 }
@@ -1089,6 +1205,7 @@ function readXlsx(file, type){
         else if(type==='bichuk') parseBichuk(wb);
         else if(type==='order')  parseOrder(wb);
         else if(type==='pick')   await parsePick(wb,e.target.result,file.name);
+        else if(type==='loc')    parseLocation(wb);
       }catch(err){setStatus(type,'❌ 읽기 실패: '+err.message,'err')}
     };
     reader.readAsArrayBuffer(file);
@@ -1105,6 +1222,45 @@ function normExpDate(v){
   const digits=s.replace(/[^0-9]/g,'');
   if(digits.length!==8) return s; // 변환 불가능한 형식은 원본 유지(안전)
   return `${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6,8)}`;
+}
+
+// 저장구역 코드 → 표시명 매핑 (고정값)
+const STORAGE_MAP={'100001':'SPC','100002':'허브로지스','20001':'이한로지스'};
+
+// 로케이션 데이터 파싱 (전체 화주사 통합 파일, 2행 헤더 구조)
+// 컬럼: 0=코드 1=품명 5=위탁자(화주사) 6=저장구역 10=재고 11=Lot No. 13=B/L No. 14=C/T No.(로케이션) 21=소비일자 23=비고
+function parseLocation(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  // 헤더 2행(품명 컬럼이 비문자인 행까지) 건너뛰고 데이터 시작 행 탐지
+  let startRow=2;
+  for(let i=0;i<Math.min(raw.length,5);i++){
+    if(String(raw[i][1]||'').trim() && String(raw[i][1]).trim()!=='수 탁 품'){
+      // 첫 데이터 행이 코드/품명 형태인지 확인
+      if(String(raw[i][0]||'').trim() || String(raw[i][1]||'').trim()){ startRow=i; break; }
+    }
+  }
+  const rows=raw.slice(startRow).filter(r=>r[1]&&String(r[1]).trim()!=='');
+
+  S.location=rows.map(r=>{
+    const exp=normExpDate(r[21]);
+    const mfg=normExpDate(r[20]); // 가공일자(제조일자)
+    return{
+      _code:  String(r[0]||'').trim(),
+      _name:  String(r[1]||'').trim(),
+      _client:String(r[5]||'').trim(),
+      _storage:String(r[6]||'').trim(),
+      _qty:   parseFloat(r[10])||0,
+      _ct:    String(r[14]||'').trim(),      // C/T No. (로케이션 위치)
+      _exp:   exp,
+      _mfg:   mfg,
+      _isMfg: !exp && !!mfg,                  // 소비일자 없고 가공일자만 있으면 제조일자 기준
+      _note:  String(r[23]||'').trim(),       // 비고
+    };
+  }).filter(r=>r._name);
+
+  const clients=[...new Set(S.location.map(r=>r._client).filter(Boolean))];
+  setStatus('loc',`✅ ${S.location.length}행 로드 완료 · ${clients.length}개 화주사 감지`,'ok');
 }
 
 function parseStock(wb, buf){
@@ -1295,6 +1451,114 @@ function runCsmsOnlyAnalyze(){
   const names = CLIENTS.filter(c=>c.type==='csms'&&S.csmsData[c.id]&&S.csmsData[c.id].length)
     .map(c=>c.name).join(', ');
   alert(`✅ CSMS 분석 완료 (${n}개 화주사)\n${names}\n슬라이드 메뉴(☰)에서 화주사를 선택하세요`);
+}
+
+// 로케이션 데이터를 화주사별로 분리 등록 (전체 화주사 공통, 매일 갱신)
+function analyzeLocation(silent){
+  if(!S.location||!S.location.length){
+    if(!silent) alert('로케이션 파일을 먼저 업로드하세요');
+    return;
+  }
+  if(!S.locationData) S.locationData={};
+  let registered=0;
+  CLIENTS.forEach(c=>{
+    // CLIENTS의 name과 파일의 위탁자(화주사)명 일치하는 행만 추출
+    const rows=S.location.filter(r=>r._client===c.name);
+    if(!rows.length) return;
+    S.locationData[c.id]=rows;
+    registered++;
+  });
+  renderSlideMenu();
+  if(currentClient && S.locationData[currentClient]) renderLocation(S.locationData[currentClient]);
+  if(!silent) alert(`✅ 로케이션 분석 완료 (${registered}개 화주사)\n슬라이드 메뉴 또는 📍 로케이션 탭에서 확인하세요`);
+}
+
+let _cacheLoc=[], _locStorageF='all', _locSearchQ='', _locSearchExp='';
+
+// 저장구역명 → 배지 CSS 클래스 매핑
+const STORAGE_BADGE={'SPC':'bg-spc','허브로지스':'bg-hub','이한로지스':'bg-ehan'};
+
+function renderLocation(rows){
+  document.getElementById('loc-empty').style.display='none';
+  document.getElementById('loc-body').style.display='block';
+  _cacheLoc=rows;
+  _locStorageF='all'; _locSearchQ=''; _locSearchExp='';
+  const searchEl=document.getElementById('loc-search');
+  if(searchEl) searchEl.value='';
+  const searchExpEl=document.getElementById('loc-search-exp');
+  if(searchExpEl) searchExpEl.value='';
+  document.querySelectorAll('#pane-location .filter-row .fbtn').forEach(b=>b.classList.remove('on'));
+  const firstBtn=document.querySelector('#pane-location .filter-row .fbtn');
+  if(firstBtn) firstBtn.classList.add('on');
+
+  const total=rows.length;
+  const spc=rows.filter(r=>STORAGE_MAP[r._storage]==='SPC').length;
+  const hub=rows.filter(r=>STORAGE_MAP[r._storage]==='허브로지스').length;
+  const ehan=rows.filter(r=>STORAGE_MAP[r._storage]==='이한로지스').length;
+  document.getElementById('lc-total').textContent=total;
+  document.getElementById('lc-spc').textContent=spc;
+  document.getElementById('lc-hub').textContent=hub;
+  document.getElementById('lc-ehan').textContent=ehan;
+
+  renderLocationTable();
+}
+
+function renderLocationTable(){
+  const tb=document.getElementById('loc-body-tbl');
+  const tbMfg=document.getElementById('loc-body-tbl-mfg');
+  if(!tb||!tbMfg) return;
+
+  let filtered=[..._cacheLoc];
+  if(_locStorageF!=='all') filtered=filtered.filter(r=>STORAGE_MAP[r._storage]===_locStorageF);
+  if(_locSearchQ) filtered=filtered.filter(r=>r._name.includes(_locSearchQ));
+  if(_locSearchExp) filtered=filtered.filter(r=>(r._isMfg?r._mfg:r._exp).includes(_locSearchExp));
+
+  // 제조일자 기준(소비기한 미관리) / 소비기한 기준으로 분리
+  const expRows=filtered.filter(r=>!r._isMfg).sort((a,b)=>(a._exp||'9999').localeCompare(b._exp||'9999'));
+  const mfgRows=filtered.filter(r=>r._isMfg).sort((a,b)=>(a._mfg||'9999').localeCompare(b._mfg||'9999'));
+
+  const countEl=document.getElementById('loc-search-count');
+  if(countEl) countEl.textContent=(_locSearchQ||_locSearchExp)?`${filtered.length}개 검색됨`:'';
+
+  const renderRow=(r,dateField)=>{
+    const storageLabel=STORAGE_MAP[r._storage]||r._storage||'-';
+    const badgeCls=STORAGE_BADGE[storageLabel]||'bp';
+    const ct=r._ct||'<span style="color:var(--text3)">미등록</span>';
+    const dateVal=r[dateField]||'-';
+    return`<tr>
+      <td class="l">${r._name}</td>
+      <td style="text-align:center"><span class="badge ${badgeCls}">${storageLabel}</span></td>
+      <td style="text-align:center;font-family:monospace">${ct}</td>
+      <td>${dateVal}</td>
+      <td>${Math.round(r._qty).toLocaleString()}</td>
+      <td class="l" style="font-size:11px;color:var(--text3)">${r._note||'-'}</td>
+    </tr>`;
+  };
+
+  tb.innerHTML=expRows.length
+    ? expRows.map(r=>renderRow(r,'_exp')).join('')
+    : `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">해당 품목 없음</td></tr>`;
+
+  tbMfg.innerHTML=mfgRows.length
+    ? mfgRows.map(r=>renderRow(r,'_mfg')).join('')
+    : `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">해당 품목 없음</td></tr>`;
+}
+
+function locFilter(storage,btn){
+  btn.closest('.filter-row').querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  _locStorageF=storage;
+  renderLocationTable();
+}
+
+function locSearch(q){
+  _locSearchQ=q.trim();
+  renderLocationTable();
+}
+
+function locSearchExp(q){
+  _locSearchExp=q.trim();
+  renderLocationTable();
 }
 
 function analyzeCsmsOnly(){
@@ -1616,6 +1880,9 @@ function analyze(){
 
   // ③ CSMS 전용 화주사는 analyzeCsmsOnly()에서 별도 처리 (자동 호출)
   analyzeCsmsOnly();
+
+  // ④ 로케이션 데이터가 업로드되어 있으면 자동 분석 (없으면 건너뜀)
+  if(S.location && S.location.length) analyzeLocation(true);
 
   // 8. 현재 선택된 화주사로 렌더링
   const selClient = currentClient || '삼진';
