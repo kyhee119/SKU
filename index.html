@@ -2176,6 +2176,7 @@ function saveResult(){
   const payload=JSON.stringify({
     version:2,
     clientData,           // 전체 화주사 결과
+    locationData:S.locationData||{}, // 화주사별 로케이션 데이터
     savedAt:todayStr,
     // 하위호환: 현재 선택 화주사 결과도 포함
     result:_lastResult||[],
@@ -2198,6 +2199,8 @@ function loadResult(e){
         Object.entries(payload.clientData).forEach(([id,d])=>{
           registerClientData(id, d.result, d.dormant||[], d.savedAt||payload.savedAt);
         });
+        // 로케이션 데이터 복원 (구버전 파일에는 없을 수 있어 안전하게 처리)
+        if(payload.locationData) S.locationData=payload.locationData;
         document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
         // 슬라이드 메뉴 배지만 갱신 (화주사 자동 선택 없음)
         renderSlideMenu();
