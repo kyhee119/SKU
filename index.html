@@ -735,30 +735,6 @@ tr:hover td{background:#fafbff}
       <div class="upload-status" id="us-stock"></div>
     </div>
     <div class="upload-card">
-      <div class="upload-title">🏪 현재고 (CSMS)</div>
-      <div class="upload-sub">매일 덮어씌우기 · 화주사 선택 후 업로드</div>
-      <div style="margin-bottom:8px">
-        <select id="csms-client-sel" class="sort-sel" style="width:100%;padding:6px 8px;font-size:12px;border-radius:6px;border:1px solid var(--border)">
-          <option value="">-- 화주사 선택 --</option>
-          <option value="삼진">삼진식품</option>
-          <option value="BRK">BRK</option>
-          <option value="BRK_D">BRK(던킨)</option>
-          <option value="파리">파리PC</option>
-          <option value="푸드랩">푸드랩스</option>
-          <option value="푸드웰">푸드웰</option>
-          <option value="푸르온">푸르온</option>
-          <option value="푸르온원료">푸르온원료</option>
-          <option value="아웃백">아웃백</option>
-        </select>
-      </div>
-      <div class="upload-zone" id="uz-bichuk" ondragover="dov(event,'uz-bichuk')" ondragleave="dlv('uz-bichuk')" ondrop="dop(event,'bichuk')">
-        <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'bichuk')">
-        <div class="upload-icon">📄</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
-      </div>
-      <div class="upload-status" id="us-bichuk"></div>
-      <button class="btn btn-outline btn-sm" style="margin-top:8px;width:100%" onclick="runCsmsOnlyAnalyze()">🔍 CSMS만 분석 실행</button>
-    </div>
-    <div class="upload-card">
       <div class="upload-title">📋 출고오더등록</div>
       <div class="upload-sub">매일 덮어씌우기 · 당일 미출 감지</div>
       <div class="upload-zone" id="uz-order" ondragover="dov(event,'uz-order')" ondragleave="dlv('uz-order')" ondrop="dop(event,'order')">
@@ -807,7 +783,7 @@ tr:hover td{background:#fafbff}
   <!-- 로케이션 데이터 (저장구역/C-T No.) — 전체 화주사 공통, 매일 갱신 -->
   <div class="upload-card full" style="border-color:rgba(124,58,237,.3);margin-top:16px">
     <div class="upload-title">📍 재고 로케이션 (저장구역·로케이션)</div>
-    <div class="upload-sub">매일 덮어씌우기 · 전체 화주사 포함 파일 1개 업로드 · 저장구역/C-T No. 자동 인식</div>
+    <div class="upload-sub">매일 덮어씌우기 · 전체 화주사 포함 파일 1개 업로드 · CSMS 수량+소비기한+저장구역+로케이션 자동 처리</div>
     <div class="upload-zone" id="uz-loc" ondragover="dov(event,'uz-loc')" ondragleave="dlv('uz-loc')" ondrop="dop(event,'loc')">
       <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'loc')">
       <div class="upload-icon">📍</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
@@ -1232,11 +1208,10 @@ const STORAGE_MAP={'100001':'SPC','100002':'허브로지스','20001':'이한로�
 function parseLocation(wb){
   const ws=wb.Sheets[wb.SheetNames[0]];
   const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-  // 헤더 2행(품명 컬럼이 비문자인 행까지) 건너뛰고 데이터 시작 행 탐지
+  // 헤더 2행 건너뛰고 데이터 시작 행 탐지
   let startRow=2;
   for(let i=0;i<Math.min(raw.length,5);i++){
     if(String(raw[i][1]||'').trim() && String(raw[i][1]).trim()!=='수 탁 품'){
-      // 첫 데이터 행이 코드/품명 형태인지 확인
       if(String(raw[i][0]||'').trim() || String(raw[i][1]||'').trim()){ startRow=i; break; }
     }
   }
@@ -1244,23 +1219,52 @@ function parseLocation(wb){
 
   S.location=rows.map(r=>{
     const exp=normExpDate(r[21]);
-    const mfg=normExpDate(r[20]); // 가공일자(제조일자)
+    const mfg=normExpDate(r[20]);
     return{
       _code:  String(r[0]||'').trim(),
       _name:  String(r[1]||'').trim(),
       _client:String(r[5]||'').trim(),
       _storage:String(r[6]||'').trim(),
       _qty:   parseFloat(r[10])||0,
-      _ct:    String(r[14]||'').trim(),      // C/T No. (로케이션 위치)
+      _ct:    String(r[14]||'').trim(),
       _exp:   exp,
       _mfg:   mfg,
-      _isMfg: !exp && !!mfg,                  // 소비일자 없고 가공일자만 있으면 제조일자 기준
-      _note:  String(r[23]||'').trim(),       // 비고
+      _isMfg: !exp && !!mfg,
+      _bl:    String(r[13]||'').trim(),  // B/L No. (비고)
+      _note:  String(r[23]||'').trim(),
     };
   }).filter(r=>r._name);
 
+  // ── 전체 화주사 S.csmsData에 채우기 (type 무관, 위탁자명 기준)
+  // 삼진식품(type:'full') 포함 전체 화주사 처리
+  if(!S.csmsDateMode) S.csmsDateMode={};
+
+  CLIENTS.forEach(c=>{
+    const cRows = S.location.filter(r=>r._client===c.name);
+    if(!cRows.length) return;
+
+    // parseBichuk과 동일한 형식으로 변환
+    const parsed = cRows.map(r=>({
+      _code: r._code,
+      _name: r._name,
+      _qty:  r._qty,
+      _exp:  r._exp,
+      _mfg:  r._mfg,
+      _bl:   r._bl,
+    }));
+
+    // dateMode 자동 감지
+    const expCount = parsed.filter(p=>p._exp).length;
+    const mfgCount = parsed.filter(p=>p._mfg).length;
+    const dateMode = (expCount===0&&mfgCount>0)?'mfg':(expCount>0&&mfgCount>0)?'mixed':'exp';
+
+    S.csmsData[c.id] = parsed;
+    S.csmsDateMode[c.id] = dateMode;
+  });
+
   const clients=[...new Set(S.location.map(r=>r._client).filter(Boolean))];
-  setStatus('loc',`✅ ${S.location.length}행 로드 완료 · ${clients.length}개 화주사 감지`,'ok');
+  const csmsLoaded=CLIENTS.filter(c=>S.csmsData[c.id]&&S.csmsData[c.id].length).map(c=>c.name);
+  setStatus('loc',`✅ ${S.location.length}행 로드 완료 · ${clients.length}개 화주사 · CSMS 자동 등록: ${csmsLoaded.join(', ')||'없음'}`,'ok');
 }
 
 function parseStock(wb, buf){
@@ -1462,12 +1466,15 @@ function analyzeLocation(silent){
   if(!S.locationData) S.locationData={};
   let registered=0;
   CLIENTS.forEach(c=>{
-    // CLIENTS의 name과 파일의 위탁자(화주사)명 일치하는 행만 추출
     const rows=S.location.filter(r=>r._client===c.name);
     if(!rows.length) return;
     S.locationData[c.id]=rows;
     registered++;
   });
+
+  // S.csmsData가 로케이션 파일에서 채워진 경우 CSMS 분석도 같이 실행
+  if(Object.keys(S.csmsData).length) analyzeCsmsOnly();
+
   renderSlideMenu();
   if(currentClient && S.locationData[currentClient]) renderLocation(S.locationData[currentClient]);
   if(!silent) alert(`✅ 로케이션 분석 완료 (${registered}개 화주사)\n슬라이드 메뉴 또는 📍 로케이션 탭에서 확인하세요`);
@@ -2349,7 +2356,7 @@ function prepareReportData() {
   const totalOut = aduTop.reduce((s, r) => s + r.adu, 0) || 1;
 
   return { result, danger, warn, normal, zero, coreDgr, aduTop, totalOut,
-           dateStr: todayStr };
+           dormant: _lastDormant||[], dateStr: todayStr };
 }
 
 // ── Excel 보고서 생성 ──────────────────────────────────
@@ -2506,6 +2513,40 @@ function generateExcel() {
       });
     });
     XLSX.utils.book_append_sheet(wb, ws4, '④ 미회전 SKU');
+
+    // ── [5] 소비기한 임박 시트 ──────────────────────────
+    const expList = (d.dormant||[])
+      .filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박'||r.dgrade==='장기보관')
+      .sort((a,b)=>a.daysLeft-b.daysLeft);
+    const expHeaders = ['품명','소비기한','남은일수','현재고','ADU','예상소진','잔여예상','판정'];
+    const expRows = expList.map(r=>[
+      r.name,
+      r.exp,
+      r.daysLeft,
+      Math.round(r.qty),
+      r.adu.toFixed(1),
+      r.expected,
+      r.remaining,
+      r.dgrade==='장기보관'?'장기보관':r.dgrade==='소진불가+임박'?'소진불가+임박':r.dgrade==='소진불가'?'소진불가':'임박'
+    ]);
+    const ws5 = XLSX.utils.aoa_to_sheet([expHeaders, ...expRows]);
+    ws5['!cols'] = [{wch:36},{wch:12},{wch:10},{wch:10},{wch:8},{wch:10},{wch:10},{wch:14}];
+    expHeaders.forEach((_,ci)=>{
+      const addr=XLSX.utils.encode_cell({r:0,c:ci});
+      if(!ws5[addr]) ws5[addr]={v:'',t:'s'};
+      ws5[addr].s=hStyle('B7770D','FFFFFF',10);
+    });
+    expRows.forEach((row,ri)=>{
+      const dl=Number(row[2]);
+      const bg=dl<=7?'FFCCCC':dl<=30?'FFF2CC':'FFFFFF';
+      const fc=dl<=7?'C00000':dl<=30?'7F4F00':'000000';
+      row.forEach((_,ci)=>{
+        const addr=XLSX.utils.encode_cell({r:ri+1,c:ci});
+        if(!ws5[addr]) ws5[addr]={v:'',t:'s'};
+        ws5[addr].s=dStyle(ci===0?'left':'center',ci===2,fc,bg);
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, ws5, '⑤ 소비기한 임박');
 
     // 다운로드
     const mm = pad(today.getMonth()+1), dd2 = pad(today.getDate());
