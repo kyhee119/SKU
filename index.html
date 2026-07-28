@@ -735,6 +735,15 @@ tr:hover td{background:#fafbff}
       <div class="upload-status" id="us-stock"></div>
     </div>
     <div class="upload-card">
+      <div class="upload-title">🏪 현재고 (CSMS) <span style="font-size:10px;color:var(--ok);font-weight:400">삼진식품 전용 · 익일기준</span></div>
+      <div class="upload-sub">매일 덮어씌우기 · 삼진식품 비축재고 파일 업로드</div>
+      <div class="upload-zone" id="uz-bichuk" ondragover="dov(event,'uz-bichuk')" ondragleave="dlv('uz-bichuk')" ondrop="dop(event,'bichuk')">
+        <input type="file" accept=".xlsx,.xls" onchange="loadFileSamjinCsms(event)">
+        <div class="upload-icon">📄</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
+      </div>
+      <div class="upload-status" id="us-bichuk"></div>
+    </div>
+    <div class="upload-card">
       <div class="upload-title">📋 출고오더등록</div>
       <div class="upload-sub">매일 덮어씌우기 · 당일 미출 감지</div>
       <div class="upload-zone" id="uz-order" ondragover="dov(event,'uz-order')" ondragleave="dlv('uz-order')" ondrop="dop(event,'order')">
@@ -803,7 +812,7 @@ tr:hover td{background:#fafbff}
     <div class="set-title">재고위험 기준</div>
     <div class="set-row"><div class="set-lbl">🔴 위험 기준 (DoS)</div><input class="set-inp" type="number" id="set-danger" value="3"> 일 미만</div>
     <div class="set-row"><div class="set-lbl">⚠️ 주의 기준 (DoS)</div><input class="set-inp" type="number" id="set-warn" value="7"> 일 미만</div>
-    <div class="set-row"><div class="set-lbl">📅 ADU 계산 기간</div><input class="set-inp" type="number" id="set-adu" value="14"> 일</div>
+    <div class="set-row"><div class="set-lbl">📅 ADU 계산 기간</div><input class="set-inp" type="number" id="set-adu" value="30"> 일</div>
   </div>
   <div class="set-card">
     <div class="set-title">중요도 분류 기준 (ADU 순위 %)</div>
@@ -822,7 +831,7 @@ tr:hover td{background:#fafbff}
     <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
       <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">ADU (Average Daily Units · 일평균 출고량)</div>
       <div style="font-size:11px;color:var(--text2);line-height:1.7">
-        최근 <strong>ADU 계산 기간</strong>(기본 14일) 동안의 할당피킹 데이터를 기준으로,<br>
+        최근 <strong>ADU 계산 기간</strong>(기본 30일) 동안의 할당피킹 데이터를 기준으로,<br>
         <code style="background:var(--bg);padding:1px 5px;border-radius:3px">ADU = 기간 내 총 할당수량 ÷ 실제 출고가 있었던 일수</code><br>
         품목별 하루 평균 출고량을 의미합니다. ADU가 높을수록 자주 나가는 주력 상품입니다.
       </div>
@@ -1312,6 +1321,55 @@ function parseStock(wb, buf){
   setStatus('stock',`✅ ${S.stock.length}행 로드 완료 (FFFFF/SHPLOC 제외) · ${sdmsClients.length}개 화주사 감지`,'ok');
 }
 
+// 삼진식품 전용 CSMS 파일 업로드 (익일 기준 비축재고)
+function loadFileSamjinCsms(e){
+  const f=e.target.files[0]; if(!f) return;
+  ensureXlsx(()=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+        parseBichukSamjin(wb);
+      }catch(err){setStatus('bichuk','❌ 읽기 실패: '+err.message,'err')}
+    };
+    reader.readAsArrayBuffer(f);
+  });
+}
+
+// 삼진식품 CSMS 파싱 → S.csmsData['삼진']에 저장 (기존 parseBichuk 로직 재사용)
+function parseBichukSamjin(wb){
+  const shName=wb.SheetNames.find(n=>n==='Sheet')||wb.SheetNames[wb.SheetNames.length-1];
+  const ws=wb.Sheets[shName];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  const hdrs=raw[0].map(h=>String(h));
+  const rows=raw.slice(1).filter(r=>r[1]&&String(r[1]).trim()!=='').map(r=>{
+    const o={};hdrs.forEach((h,i)=>o[h]=r[i]);return o;
+  });
+  const ck=Object.keys(rows[0]||{}).find(k=>k.includes('상대')&&k.includes('코드'))||Object.keys(rows[0]||{})[0];
+  const blKey=Object.keys(rows[0]||{}).find(k=>k.includes('B/L')||k.includes('BL'))||null;
+  const parsed=rows.map(r=>{
+    const nk=Object.keys(r).find(k=>k.includes('탁')&&k.includes('품')&&k.includes('명'))||Object.keys(r)[1];
+    return{
+      _code: String(r[ck]||'').trim(),
+      _name: String(r[nk]||'').trim(),
+      _qty:  parseFloat(r['재고수량'])||0,
+      _exp:  normExpDate(r['소비일자']),
+      _mfg:  normExpDate(r['제조일자']),
+      _bl:   blKey?String(r[blKey]||'').trim():'',
+    };
+  }).filter(r=>r._name);
+
+  const expCount=parsed.filter(r=>r._exp).length;
+  const mfgCount=parsed.filter(r=>r._mfg).length;
+  const dateMode=(expCount===0&&mfgCount>0)?'mfg':(expCount>0&&mfgCount>0)?'mixed':'exp';
+
+  // 재고현황2에서 이미 삼진 데이터가 있으면 덮어씌움 (익일 기준 파일 우선)
+  S.csmsData['삼진']=parsed;
+  if(!S.csmsDateMode) S.csmsDateMode={};
+  S.csmsDateMode['삼진']=dateMode;
+  setStatus('bichuk',`✅ 삼진식품 CSMS ${parsed.length}행 로드 완료 (익일기준 · 재고현황2 덮어씌움)`,'ok');
+}
+
 function parseBichuk(wb){
   const shName=wb.SheetNames.find(n=>n==='Sheet')||wb.SheetNames[wb.SheetNames.length-1];
   const ws=wb.Sheets[shName];
@@ -1641,7 +1699,7 @@ function analyze(){
 
   const DANGER_D=parseInt(document.getElementById('set-danger').value)||3;
   const WARN_D  =parseInt(document.getElementById('set-warn').value)||7;
-  const ADU_D   =parseInt(document.getElementById('set-adu').value)||14;
+  const ADU_D   =parseInt(document.getElementById('set-adu').value)||30;
   const TOP_PCT =parseInt(document.getElementById('set-top').value)||30;
   const BOT_PCT =parseInt(document.getElementById('set-bot').value)||30;
   const EXP_D   =parseInt(document.getElementById('set-exp').value)||120;
