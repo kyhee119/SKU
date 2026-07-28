@@ -737,7 +737,7 @@ tr:hover td{background:#fafbff}
     <div class="upload-card">
       <div class="upload-title">🏪 현재고 (CSMS) <span style="font-size:10px;color:var(--ok);font-weight:400">삼진식품 전용 · 익일기준</span></div>
       <div class="upload-sub">매일 덮어씌우기 · 삼진식품 비축재고 파일 업로드</div>
-      <div class="upload-zone" id="uz-bichuk" ondragover="dov(event,'uz-bichuk')" ondragleave="dlv('uz-bichuk')" ondrop="dop(event,'bichuk')">
+      <div class="upload-zone" id="uz-bichuk" ondragover="dov(event,'uz-bichuk')" ondragleave="dlv('uz-bichuk')" ondrop="dopSamjinCsms(event)">
         <input type="file" accept=".xlsx,.xls" onchange="loadFileSamjinCsms(event)">
         <div class="upload-icon">📄</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
       </div>
@@ -1334,6 +1334,24 @@ function loadFileSamjinCsms(e){
     };
     reader.readAsArrayBuffer(f);
   });
+}
+
+function dopSamjinCsms(e){
+  e.preventDefault();
+  dlv('uz-bichuk');
+  const f=e.dataTransfer.files[0];
+  if(f){
+    ensureXlsx(()=>{
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        try{
+          const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+          parseBichukSamjin(wb);
+        }catch(err){setStatus('bichuk','❌ 읽기 실패: '+err.message,'err')}
+      };
+      reader.readAsArrayBuffer(f);
+    });
+  }
 }
 
 // 삼진식품 CSMS 파싱 → S.csmsData['삼진']에 저장 (기존 parseBichuk 로직 재사용)
