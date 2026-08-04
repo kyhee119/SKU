@@ -735,15 +735,6 @@ tr:hover td{background:#fafbff}
       <div class="upload-status" id="us-stock"></div>
     </div>
     <div class="upload-card">
-      <div class="upload-title">🏪 현재고 (CSMS) <span style="font-size:10px;color:var(--ok);font-weight:400">삼진식품 전용 · 익일기준</span></div>
-      <div class="upload-sub">매일 덮어씌우기 · 삼진식품 비축재고 파일 업로드</div>
-      <div class="upload-zone" id="uz-bichuk" ondragover="dov(event,'uz-bichuk')" ondragleave="dlv('uz-bichuk')" ondrop="dopSamjinCsms(event)">
-        <input type="file" accept=".xlsx,.xls" onchange="loadFileSamjinCsms(event)">
-        <div class="upload-icon">📄</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
-      </div>
-      <div class="upload-status" id="us-bichuk"></div>
-    </div>
-    <div class="upload-card">
       <div class="upload-title">📋 출고오더등록</div>
       <div class="upload-sub">매일 덮어씌우기 · 당일 미출 감지</div>
       <div class="upload-zone" id="uz-order" ondragover="dov(event,'uz-order')" ondragleave="dlv('uz-order')" ondrop="dop(event,'order')">
@@ -752,9 +743,31 @@ tr:hover td{background:#fafbff}
       </div>
       <div class="upload-status" id="us-order"></div>
     </div>
+  </div>
+
+  <!-- 로케이션 + CSMS 통합 업로드 -->
+  <div class="upload-card full" style="border-color:rgba(124,58,237,.3);margin-bottom:12px">
+    <div class="upload-title">📍 재고 로케이션 (저장구역·로케이션)</div>
+    <div class="upload-sub">매일 덮어씌우기 · 전체 화주사 포함 파일 1개 · CSMS 수량+소비기한+저장구역+로케이션 자동 처리 (삼진식품 제외)</div>
+    <div class="upload-zone" id="uz-loc" ondragover="dov(event,'uz-loc')" ondragleave="dlv('uz-loc')" ondrop="dop(event,'loc')">
+      <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'loc')">
+      <div class="upload-icon">📍</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
+    </div>
+    <div class="upload-status" id="us-loc"></div>
+    <div style="height:1px;background:var(--border);margin:14px 0"></div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px">🏪 삼진식품 비축재고 <span style="font-size:10px;color:var(--ok);font-weight:400">익일기준 · 별도 업로드</span></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">재고현황2 파일 업로드 후 삼진식품 익일기준 파일을 추가로 올리면 덮어씌워집니다</div>
+    <div class="upload-zone" id="uz-bichuk" ondragover="dov(event,'uz-bichuk')" ondragleave="dlv('uz-bichuk')" ondrop="dopSamjinCsms(event)">
+      <input type="file" accept=".xlsx,.xls" onchange="loadFileSamjinCsms(event)">
+      <div class="upload-icon">📄</div><div class="upload-txt">삼진식품 익일기준 파일 선택 또는 드래그앤드롭</div>
+    </div>
+    <div class="upload-status" id="us-bichuk"></div>
+  </div>
+
+  <div class="upload-grid">
     <div class="upload-card full">
       <div class="upload-title">✅ 할당피킹 <span style="font-size:10px;color:var(--text3);font-weight:400">(누적 · 삭제 불필요)</span></div>
-      <div class="upload-sub">매일 당일 파일 추가 · 14일 ADU 자동 계산</div>
+      <div class="upload-sub">매일 당일 파일 추가 · 30일 ADU 자동 계산</div>
 
       <!-- STEP 1: 폴더 지정 -->
       <div style="margin-bottom:10px">
@@ -784,23 +797,10 @@ tr:hover td{background:#fafbff}
       </div>
     </div>
   </div>
+
   <div class="analyze-bar">
     <div class="analyze-txt">파일 업로드 후 분석을 실행하면 모든 탭이 자동 갱신됩니다. (로케이션 파일이 있으면 함께 분석됩니다)</div>
     <button class="btn btn-primary" onclick="analyze()">🔍 분석 실행</button>
-  </div>
-
-  <!-- 로케이션 데이터 (저장구역/C-T No.) — 전체 화주사 공통, 매일 갱신 -->
-  <div class="upload-card full" style="border-color:rgba(124,58,237,.3);margin-top:16px">
-    <div class="upload-title">📍 재고 로케이션 (저장구역·로케이션)</div>
-    <div class="upload-sub">매일 덮어씌우기 · 전체 화주사 포함 파일 1개 업로드 · CSMS 수량+소비기한+저장구역+로케이션 자동 처리</div>
-    <div class="upload-zone" id="uz-loc" ondragover="dov(event,'uz-loc')" ondragleave="dlv('uz-loc')" ondrop="dop(event,'loc')">
-      <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'loc')">
-      <div class="upload-icon">📍</div><div class="upload-txt">파일 선택 또는 드래그앤드롭</div>
-    </div>
-    <div class="upload-status" id="us-loc"></div>
-    <div style="margin-top:10px">
-      <button class="btn btn-outline btn-sm" onclick="analyzeLocation()">🔍 로케이션만 먼저 분석</button>
-    </div>
   </div>
 </div>
 </div>
@@ -1244,11 +1244,10 @@ function parseLocation(wb){
     };
   }).filter(r=>r._name);
 
-  // ── 전체 화주사 S.csmsData에 채우기 (type 무관, 위탁자명 기준)
-  // 삼진식품(type:'full') 포함 전체 화주사 처리
+  // ── 전체 화주사 S.csmsData에 채우기 (삼진식품 제외 — 익일기준 파일 별도 업로드)
   if(!S.csmsDateMode) S.csmsDateMode={};
 
-  CLIENTS.forEach(c=>{
+  CLIENTS.filter(c=>c.id!=='삼진').forEach(c=>{
     const cRows = S.location.filter(r=>r._client===c.name);
     if(!cRows.length) return;
 
