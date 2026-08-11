@@ -408,6 +408,15 @@ tr:hover td{background:#fafbff}
   <div id="home-empty" class="empty"><div class="empty-icon">🏠</div><div>데이터를 업로드하고 분석을 실행하세요</div></div>
   <div id="home-body" style="display:none">
 
+    <!-- 소비기한 6개월 미만 사용금지 알림 (삼진식품 전용) -->
+    <div id="exp-warning-bar" style="display:none;background:#fff1f2;border:1px solid #fda4af;padding:7px 14px;border-radius:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+      <span style="font-size:13px">🚫</span>
+      <span style="font-size:12px;color:#be123c;font-weight:600">소비기한 6개월 미만 사용금지</span>
+      <span style="font-size:12px;color:#aaa">·</span>
+      <span id="exp-warning-date" style="font-size:12px;font-weight:700;color:#be123c">-</span>
+      <span id="exp-warning-today" style="font-size:11px;color:#999"></span>
+    </div>
+
     <!-- 요약 카드 -->
     <div class="cards">
       <div class="card c-accent"><div class="card-lbl">전체 SKU</div><div class="card-val" id="hc-total">-</div><div class="card-sub">미회전 포함 전체</div></div>
@@ -2000,6 +2009,26 @@ function renderHome(result,danger,warn){
   document.getElementById('hc-danger').textContent=danger.length;
   document.getElementById('hc-warn').textContent=warn.length;
   document.getElementById('hc-core').textContent=coreDgr.length;
+
+  // 삼진식품 전용: 소비기한 6개월 미만 사용금지 알림 띠
+  const warningBar=document.getElementById('exp-warning-bar');
+  if(warningBar){
+    if(currentClient==='삼진'){
+      const today=new Date(todayStr);
+      // 출고 가능 기준일 = 오늘 + 6개월
+      const canOut=new Date(today);
+      canOut.setMonth(canOut.getMonth()+6);
+      // 출고 불가 기준일 = 출고 가능 기준일 - 1일
+      const cannotOut=new Date(canOut);
+      cannotOut.setDate(cannotOut.getDate()-1);
+      const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      document.getElementById('exp-warning-date').textContent=`${fmt(cannotOut)} 이전 출고 불가`;
+      document.getElementById('exp-warning-today').textContent=`· ${fmt(canOut)} 부터 출고 가능 (기준: ${todayStr})`;
+      warningBar.style.display='flex';
+    } else {
+      warningBar.style.display='none';
+    }
+  }
 
   _cacheHome=[...result].sort((a,b)=>b.adu-a.adu);  // 미회전 포함 전체 품목
   renderHomeTable(_cacheHome);
