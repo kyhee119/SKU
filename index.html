@@ -379,6 +379,7 @@ tr:hover td{background:#fafbff}
     <div class="pc-btns">
       <button class="btn btn-success btn-sm" onclick="saveResult()">💾 결과 저장</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('load-inp').click()">📂 불러오기</button>
+      <button class="btn btn-sm" style="background:#0f9d58;color:#fff" onclick="loadFromDrive()">☁️ 드라이브 불러오기</button>
       <button class="btn btn-outline btn-sm" onclick="exportExcel()">📥 엑셀</button>
       <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
       <button class="btn btn-sm" style="background:#1e40af;color:#fff" onclick="generateExcel()">📊 보고서</button>
@@ -388,7 +389,8 @@ tr:hover td{background:#fafbff}
     <!-- 모바일 전용 -->
     <div class="mob-btns">
       <button class="btn btn-success btn-sm" onclick="saveResult()">💾 저장</button>
-      <button class="btn btn-outline btn-sm" onclick="document.getElementById('load-inp').click()">📂 불러오기</button>
+      <button class="btn btn-sm" style="background:#0f9d58;color:#fff" onclick="loadFromDrive()">☁️ 드라이브</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('load-inp').click()">📂 파일</button>
     </div>
     <input type="file" id="load-inp" accept=".json,.txt" style="display:none" onchange="loadResult(event)">
   </div>
@@ -2281,21 +2283,85 @@ function copyMsg(){
 }
 
 // ── 결과 저장/불러오기 ─────────────────────────────────────────
+// ── 구글 드라이브 연동 (Apps Script) ──────────────────
+const GAS_URL = 'https://script.google.com/macros/s/AKfycby2Fu_lQelJfgfqT7GKKEtbjiBFbQd3KWkfxCvDV8iSIwbNmQXOZsohcbWxqYEON32i/exec';
+
 function saveResult(){
-  // 전체 화주사 clientData 저장
   if(!Object.keys(clientData).length){alert('먼저 분석을 실행하세요');return}
   const payload=JSON.stringify({
     version:2,
-    clientData,           // 전체 화주사 결과
-    locationData:S.locationData||{}, // 화주사별 로케이션 데이터
+    clientData,
+    locationData:S.locationData||{},
     savedAt:todayStr,
-    // 하위호환: 현재 선택 화주사 결과도 포함
     result:_lastResult||[],
     dormant:_lastDormant||[],
   });
+
+  // ① 로컬 파일 다운로드 (기존 방식 유지)
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
   a.download=`gfs_result_${todayStr}.txt`;a.click();
+
+  // ② 구글 드라이브에 자동 저장
+  const btn=document.querySelector('[onclick="saveResult()"]');
+  if(btn){btn.textContent='💾 저장 중...';btn.disabled=true;}
+  fetch(GAS_URL,{method:'POST',body:payload})
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.success) alert('✅ 구글 드라이브에도 저장 완료!');
+      else alert('⚠️ 드라이브 저장 실패: '+d.error);
+    })
+    .catch(()=>alert('⚠️ 드라이브 저장 실패 (네트워크 확인)'))
+    .finally(()=>{
+      if(btn){btn.textContent='💾 결과 저장';btn.disabled=false;}
+    });
+}
+
+// 구글 드라이브에서 최신 결과 불러오기
+function loadFromDrive(){
+  const btn=document.querySelector('[onclick="loadFromDrive()"]');
+  if(btn){btn.textContent='📥 불러오는 중...';btn.disabled=true;}
+  fetch(GAS_URL)
+    .then(r=>r.json())
+    .then(payload=>{
+      if(payload.error){alert('❌ '+payload.error);return;}
+      applyLoadedData(payload);
+    })
+    .catch(()=>alert('❌ 드라이브 불러오기 실패 (네트워크 확인)'))
+    .finally(()=>{
+      if(btn){btn.textContent='☁️ 드라이브 불러오기';btn.disabled=false;}
+    });
+}
+
+// 불러온 데이터 적용 (파일/드라이브 공통)
+function applyLoadedData(payload){
+  if(payload.version===2 && payload.clientData){
+    Object.entries(payload.clientData).forEach(([id,d])=>{
+      registerClientData(id, d.result, d.dormant||[], d.savedAt||payload.savedAt);
+    });
+    if(payload.locationData) S.locationData=payload.locationData;
+    document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
+    renderSlideMenu();
+    const cnt=Object.keys(payload.clientData).length;
+    alert(`✅ ${payload.savedAt} 전체 ${cnt}개 화주사 데이터 로드 완료\n슬라이드 메뉴(☰)에서 화주사를 선택하세요`);
+  } else {
+    if(!currentClient) currentClient='삼진';
+    _lastResult=payload.result;_lastDormant=payload.dormant||[];
+    registerClientData(currentClient, payload.result, payload.dormant||[], payload.savedAt);
+    const danger=payload.result.filter(r=>r.grade.includes('위험'));
+    const warn  =payload.result.filter(r=>r.grade==='⚠️ 주의');
+    const dormFFFFF=_lastDormant.filter(r=>r.dgrade==='FFFFF');
+    const dormNoOut=_lastDormant.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박');
+    const dormExp  =_lastDormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박'||r.dgrade==='장기보관');
+    const dormZero =payload.result.filter(r=>r.grade==='➖ 미회전');
+    renderHome(payload.result,danger,warn);
+    renderRisk(payload.result,danger,warn);
+    renderDormant(dormFFFFF,dormNoOut,dormExp,dormZero);
+    renderMsg(danger,warn);
+    document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
+    switchTab('home');
+    alert(`✅ ${payload.savedAt} 데이터 로드 완료`);
+  }
 }
 
 function loadResult(e){
@@ -2304,41 +2370,7 @@ function loadResult(e){
   reader.onload=ev=>{
     try{
       const payload=JSON.parse(ev.target.result);
-
-      if(payload.version===2 && payload.clientData){
-        // ── 신규 포맷: 전체 화주사 한번에 복원 ──
-        Object.entries(payload.clientData).forEach(([id,d])=>{
-          registerClientData(id, d.result, d.dormant||[], d.savedAt||payload.savedAt);
-        });
-        // 로케이션 데이터 복원 (구버전 파일에는 없을 수 있어 안전하게 처리)
-        if(payload.locationData) S.locationData=payload.locationData;
-        document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
-        // 슬라이드 메뉴 배지만 갱신 (화주사 자동 선택 없음)
-        renderSlideMenu();
-        const cnt=Object.keys(payload.clientData).length;
-        document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
-        alert(`✅ ${payload.savedAt} 전체 ${cnt}개 화주사 데이터 로드 완료\n슬라이드 메뉴(☰)에서 화주사를 선택하세요`);
-      } else {
-        // ── 구버전 포맷 호환 ──
-        if(!currentClient) currentClient='삼진';
-        _lastResult=payload.result;_lastDormant=payload.dormant||[];
-        registerClientData(currentClient, payload.result, payload.dormant||[], payload.savedAt);
-        const danger=payload.result.filter(r=>r.grade.includes('위험'));
-        const warn  =payload.result.filter(r=>r.grade==='⚠️ 주의');
-        const dormFFFFF=_lastDormant.filter(r=>r.dgrade==='FFFFF');
-        const dormNoOut=_lastDormant.filter(r=>r.dgrade==='소진불가'||r.dgrade==='소진불가+임박');
-        const dormExp  =_lastDormant.filter(r=>r.dgrade==='임박'||r.dgrade==='소진불가+임박'||r.dgrade==='장기보관');
-        const dormZero =payload.result.filter(r=>r.grade==='➖ 미회전');
-        renderHome(payload.result,danger,warn);
-        renderRisk(payload.result,danger,warn);
-        renderDormant(dormFFFFF,dormNoOut,dormExp,dormZero);
-        renderMsg(danger,warn);
-        document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
-        const c=CLIENTS.find(x=>x.id===currentClient);
-        document.querySelector('.brand-sub').textContent=`안성센터 · ${c?c.name:currentClient}`;
-        switchTab('home');
-        alert(`✅ ${payload.savedAt} 데이터 로드 완료`);
-      }
+      applyLoadedData(payload);
     }catch(err){alert('❌ 파일 읽기 실패: '+err.message)}
   };
   reader.readAsText(f);
