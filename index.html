@@ -2284,7 +2284,7 @@ function copyMsg(){
 
 // ── 결과 저장/불러오기 ─────────────────────────────────────────
 // ── 구글 드라이브 연동 (Apps Script) ──────────────────
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbw4K01oCkfIVK6GEqgd8U2SGgn9iefrvBct41o1P3dKhRQ9n6i0kLua_lHiZYSgGBY/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycby2Fu_lQelJfgfqT7GKKEtbjiBFbQd3KWkfxCvDV8iSIwbNmQXOZsohcbWxqYEON32i/exec';
 
 function saveResult(){
   if(!Object.keys(clientData).length){alert('먼저 분석을 실행하세요');return}
@@ -2312,8 +2312,6 @@ function saveResult(){
     headers:{'Content-Type':'text/plain'}
   })
     .then(()=>{
-      // no-cors라 응답 못 읽으므로 JSONP로 fileId 확인
-      _fetchFileId();
       alert('✅ 구글 드라이브 저장 완료!\n(드라이브에서 gfs_result_latest.txt 확인)');
     })
     .catch(()=>alert('⚠️ 드라이브 저장 실패 (네트워크 확인)'))
@@ -2322,70 +2320,47 @@ function saveResult(){
     });
 }
 
-// 저장 후 파일 ID를 JSONP로 가져와서 localStorage에 보관
-function _fetchFileId(){
-  const cbName='_gfsFileIdCb_'+Date.now();
-  const script=document.createElement('script');
-  window[cbName]=function(d){
-    delete window[cbName];
-    if(script.parentNode) script.parentNode.removeChild(script);
-    if(d.__fileId) localStorage.setItem('gfs_drive_file_id', d.__fileId);
-  };
-  script.src=GAS_URL+'?callback='+cbName;
-  document.body.appendChild(script);
-}
-
 // 구글 드라이브에서 최신 결과 불러오기
 function loadFromDrive(){
   const btn=document.querySelector('[onclick="loadFromDrive()"]');
   if(btn){btn.textContent='📥 불러오는 중...';btn.disabled=true;}
 
-  const fileId=localStorage.getItem('gfs_drive_file_id');
-
-  if(fileId){
-    // 파일 ID 있으면 직접 URL로 가져오기 (CORS 없음)
+  // STEP1: JSONP로 파일 ID 가져오기
+  const cbName='_gfsDriveCb_'+Date.now();
+  const script=document.createElement('script');
+  window[cbName]=function(d){
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+    if(d.error){
+      alert('❌ '+d.error);
+      if(btn){btn.textContent='☁️ 드라이브 불러오기';btn.disabled=false;}
+      return;
+    }
+    const fileId=d.fileId;
+    if(!fileId){
+      alert('❌ 파일 ID를 찾을 수 없습니다. PC에서 먼저 저장해주세요.');
+      if(btn){btn.textContent='☁️ 드라이브 불러오기';btn.disabled=false;}
+      return;
+    }
+    localStorage.setItem('gfs_drive_file_id', fileId);
+    // STEP2: 직접 URL로 파일 내용 가져오기
     const url=`https://drive.google.com/uc?export=download&id=${fileId}`;
     fetch(url)
-      .then(r=>r.json())
-      .then(payload=>{
-        if(payload.error){alert('❌ '+payload.error);return;}
+      .then(r=>r.text())
+      .then(text=>{
+        const payload=JSON.parse(text);
         applyLoadedData(payload);
       })
-      .catch(()=>{
-        // 직접 URL 실패 시 JSONP로 재시도
-        _loadFromDriveJsonp(btn);
-        return;
-      })
+      .catch(err=>alert('❌ 파일 내용 읽기 실패: '+err.message))
       .finally(()=>{
         if(btn){btn.textContent='☁️ 드라이브 불러오기';btn.disabled=false;}
       });
-  } else {
-    // 파일 ID 없으면 JSONP로 시도
-    _loadFromDriveJsonp(btn);
-  }
-}
-
-function _loadFromDriveJsonp(btn){
-  const cbName='_gfsDriveCallback_'+Date.now();
-  const script=document.createElement('script');
-  window[cbName]=function(payload){
-    try{
-      delete window[cbName];
-      if(script.parentNode) script.parentNode.removeChild(script);
-      if(payload.error){alert('❌ '+payload.error);return;}
-      if(payload.__fileId) localStorage.setItem('gfs_drive_file_id', payload.__fileId);
-      applyLoadedData(payload);
-    }catch(e){
-      alert('❌ 데이터 처리 실패: '+e.message);
-    }finally{
-      if(btn){btn.textContent='☁️ 드라이브 불러오기';btn.disabled=false;}
-    }
   };
   script.onerror=function(){
     delete window[cbName];
     if(script.parentNode) script.parentNode.removeChild(script);
     if(btn){btn.textContent='☁️ 드라이브 불러오기';btn.disabled=false;}
-    alert('❌ 드라이브 불러오기 실패\n한 번 저장 후 다시 시도해주세요');
+    alert('❌ 드라이브 연결 실패. Apps Script 배포를 확인해주세요.');
   };
   script.src=GAS_URL+'?callback='+cbName;
   document.body.appendChild(script);
