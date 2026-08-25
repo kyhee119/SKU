@@ -2292,6 +2292,8 @@ function saveResult(){
     version:2,
     clientData,
     locationData:S.locationData||{},
+    csmsData:S.csmsData||{},
+    csmsDateMode:S.csmsDateMode||{},
     savedAt:todayStr,
     result:_lastResult||[],
     dormant:_lastDormant||[],
@@ -2358,6 +2360,8 @@ function applyLoadedData(payload){
       registerClientData(id, d.result, d.dormant||[], d.savedAt||payload.savedAt);
     });
     if(payload.locationData) S.locationData=payload.locationData;
+    if(payload.csmsData)     S.csmsData=payload.csmsData;
+    if(payload.csmsDateMode) S.csmsDateMode=payload.csmsDateMode;
     document.getElementById('date-lbl').textContent=`기준일: ${payload.savedAt}`;
     renderSlideMenu();
     const cnt=Object.keys(payload.clientData).length;
