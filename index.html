@@ -2320,20 +2320,36 @@ function saveResult(){
     });
 }
 
-// 구글 드라이브에서 최신 결과 불러오기
+// 구글 드라이브에서 최신 결과 불러오기 (JSONP 방식)
 function loadFromDrive(){
   const btn=document.querySelector('[onclick="loadFromDrive()"]');
   if(btn){btn.textContent='📥 불러오는 중...';btn.disabled=true;}
-  fetch(GAS_URL)
-    .then(r=>r.json())
-    .then(payload=>{
+
+  const cbName='_gfsDriveCallback_'+Date.now();
+  const script=document.createElement('script');
+
+  window[cbName]=function(payload){
+    try{
+      delete window[cbName];
+      document.body.removeChild(script);
       if(payload.error){alert('❌ '+payload.error);return;}
       applyLoadedData(payload);
-    })
-    .catch(()=>alert('❌ 드라이브 불러오기 실패 (네트워크 확인)'))
-    .finally(()=>{
+    }catch(e){
+      alert('❌ 데이터 처리 실패: '+e.message);
+    }finally{
       if(btn){btn.textContent='☁️ 드라이브 불러오기';btn.disabled=false;}
-    });
+    }
+  };
+
+  script.onerror=function(){
+    delete window[cbName];
+    document.body.removeChild(script);
+    if(btn){btn.textContent='☁️ 드라이브 불러오기';btn.disabled=false;}
+    alert('❌ 드라이브 불러오기 실패 (네트워크 확인)');
+  };
+
+  script.src=GAS_URL+'?callback='+cbName;
+  document.body.appendChild(script);
 }
 
 // 불러온 데이터 적용 (파일/드라이브 공통)
