@@ -2302,14 +2302,17 @@ function saveResult(){
   a.href=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
   a.download=`gfs_result_${todayStr}.txt`;a.click();
 
-  // ② 구글 드라이브에 자동 저장
+  // ② 구글 드라이브에 자동 저장 (no-cors 방식)
   const btn=document.querySelector('[onclick="saveResult()"]');
   if(btn){btn.textContent='💾 저장 중...';btn.disabled=true;}
-  fetch(GAS_URL,{method:'POST',body:payload})
-    .then(r=>r.json())
-    .then(d=>{
-      if(d.success) alert('✅ 구글 드라이브에도 저장 완료!');
-      else alert('⚠️ 드라이브 저장 실패: '+d.error);
+  fetch(GAS_URL,{
+    method:'POST',
+    mode:'no-cors',
+    body:payload,
+    headers:{'Content-Type':'text/plain'}
+  })
+    .then(()=>{
+      alert('✅ 구글 드라이브 저장 요청 완료!\n(드라이브에서 gfs_result_latest.txt 확인)');
     })
     .catch(()=>alert('⚠️ 드라이브 저장 실패 (네트워크 확인)'))
     .finally(()=>{
